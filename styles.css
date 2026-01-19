@@ -60,6 +60,7 @@ Obsidian Cost Plugin Styles
 
 .cost-accounts-sidebar {
 	padding: 0;
+	background: var(--background-secondary);
 }
 
 .cost-sidebar-header {
@@ -94,7 +95,7 @@ Obsidian Cost Plugin Styles
 /* 余额汇总卡片 - 现代设计 */
 .cost-balance-summary-card {
 	padding: 14px 16px;
-	background: var(--background-secondary);
+	background: var(--background-primary);
 	border-radius: 12px;
 	border: 1px solid var(--background-modifier-border);
 	width: 100%;
@@ -207,15 +208,14 @@ Obsidian Cost Plugin Styles
 
 /* 账户分组 */
 .cost-account-group {
-	margin-bottom: 8px;
+	margin-bottom: 12px;
 }
 
 .cost-account-group-header {
 	display: flex;
 	align-items: center;
-	padding: 8px 16px;
-	background: var(--background-secondary);
-	border-bottom: 1px solid var(--background-modifier-border);
+	padding: 8px 12px;
+	background: transparent;
 	gap: 6px;
 	font-size: 12px;
 	color: var(--text-muted);
@@ -250,13 +250,17 @@ Obsidian Cost Plugin Styles
 .cost-account-item {
 	display: flex;
 	align-items: center;
-	padding: 8px 16px;
+	padding: 10px 12px;
 	cursor: pointer;
-	gap: 12px;
+	gap: 10px;
+	background: var(--background-primary);
+	border-radius: 8px;
+	margin: 4px 8px;
 }
 
 .cost-account-item:hover {
 	background: var(--background-modifier-hover);
+	border-left: 3px solid var(--text-accent);
 }
 
 .cost-account-icon {
@@ -378,6 +382,13 @@ Obsidian Cost Plugin Styles
 	flex: 1;
 	overflow-y: auto;
 	padding: 16px;
+	background: var(--background-secondary);
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+
+.cost-view-content::-webkit-scrollbar {
+	display: none;
 }
 
 /* ========================================
@@ -402,6 +413,12 @@ Obsidian Cost Plugin Styles
 	max-height: calc(100vh - 120px);
 	overflow-y: auto;
 	padding: 10px;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+
+.cost-txn-left-col::-webkit-scrollbar {
+	display: none;
 }
 
 .cost-txn-right-col {
@@ -411,7 +428,7 @@ Obsidian Cost Plugin Styles
 
 /* 迷你日历 */
 .cost-mini-calendar {
-	background: var(--background-secondary);
+	background: var(--background-primary);
 	border-radius: 12px;
 	padding: 12px;
 	border: 1px solid var(--background-modifier-border);
@@ -607,7 +624,7 @@ Obsidian Cost Plugin Styles
 	border-radius: 8px;
 	cursor: pointer;
 	gap: 12px;
-	background: var(--background-secondary);
+	background: var(--background-primary);
 }
 
 .cost-transaction-item:hover {
@@ -997,7 +1014,10 @@ Obsidian Cost Plugin Styles
 	display: flex;
 	flex-direction: column;
 	border-right: 1px solid var(--background-modifier-border);
-	padding-right: 16px;
+	padding: 12px;
+	background: var(--background-secondary);
+	border-radius: 8px;
+	margin-right: 8px;
 }
 
 .cost-accounts-right {
@@ -1006,6 +1026,12 @@ Obsidian Cost Plugin Styles
 	display: flex;
 	flex-direction: column;
 	overflow-y: auto;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+
+.cost-accounts-right::-webkit-scrollbar {
+	display: none;
 }
 
 .cost-col-header {
@@ -1023,6 +1049,12 @@ Obsidian Cost Plugin Styles
 .cost-accounts-col-list {
 	flex: 1;
 	overflow-y: auto;
+	scrollbar-width: none; /* Firefox */
+	-ms-overflow-style: none; /* IE/Edge */
+}
+
+.cost-accounts-col-list::-webkit-scrollbar {
+	display: none; /* Chrome/Safari/Opera */
 }
 
 .cost-account-list-item {
@@ -1030,9 +1062,10 @@ Obsidian Cost Plugin Styles
 	align-items: center;
 	padding: 10px 12px;
 	gap: 10px;
-	border-radius: 6px;
+	border-radius: 8px;
 	cursor: pointer;
 	margin-bottom: 4px;
+	background: var(--background-primary);
 }
 
 .cost-account-list-item:hover {
@@ -1078,6 +1111,12 @@ Obsidian Cost Plugin Styles
 .cost-txn-col-list {
 	flex: 1;
 	overflow-y: auto;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+
+.cost-txn-col-list::-webkit-scrollbar {
+	display: none;
 }
 
 .cost-select-hint {
@@ -1093,7 +1132,7 @@ Obsidian Cost Plugin Styles
 	flex-direction: column;
 	align-items: center;
 	padding: 20px 16px;
-	background: var(--background-secondary);
+	background: var(--background-primary);
 	border-radius: 12px;
 	cursor: pointer;
 	text-align: center;

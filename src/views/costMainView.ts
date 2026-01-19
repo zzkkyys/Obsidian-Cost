@@ -961,9 +961,6 @@ export class CostMainView extends ItemView {
     private async renderAccountsTab(container: HTMLElement): Promise<void> {
         const accounts = this.plugin.accountService.getAccounts();
 
-        // 渲染总余额汇总卡片
-        this.renderBalanceSummary(container, accounts);
-
         // 创建两列布局
         const layout = container.createDiv({ cls: "cost-accounts-layout" });
 
@@ -1171,24 +1168,23 @@ export class CostMainView extends ItemView {
         // 信息
         const infoEl = item.createDiv({ cls: "cost-account-list-info" });
         
-        const topRow = infoEl.createDiv({ cls: "cost-account-list-top" });
-        const nameEl = topRow.createSpan({ cls: "cost-account-list-name" });
+        const nameEl = infoEl.createDiv({ cls: "cost-account-list-name" });
         nameEl.setText(account.displayName);
 
-        // 余额
+        // 交易数量
+        const txnCount = this.plugin.transactionService.getTransactionsByAccount(account.fileName).length;
+        const countEl = infoEl.createDiv({ cls: "cost-account-list-count" });
+        countEl.setText(`${txnCount} 笔交易`);
+
+        // 余额（放在右边）
         const balance = this.calculateBalance(account);
-        const balanceEl = topRow.createSpan({ cls: "cost-account-list-balance" });
+        const balanceEl = item.createDiv({ cls: "cost-account-list-balance" });
         balanceEl.setText(`${balance.toFixed(2)}`);
         if (balance >= 0) {
             balanceEl.addClass("cost-balance-positive");
         } else {
             balanceEl.addClass("cost-balance-negative");
         }
-
-        // 交易数量
-        const txnCount = this.plugin.transactionService.getTransactionsByAccount(account.fileName).length;
-        const countEl = infoEl.createDiv({ cls: "cost-account-list-count" });
-        countEl.setText(`${txnCount} 笔交易`);
 
         // 点击选中账户
         item.addEventListener("click", () => {
