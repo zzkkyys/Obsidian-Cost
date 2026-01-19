@@ -463,11 +463,6 @@ export class CostMainView extends ItemView {
         const topRow = infoEl.createDiv({ cls: "cost-txn-top-row" });
         topRow.createSpan({ cls: "cost-txn-category", text: txn.category || "未分类" });
         
-        // 显示时间
-        if (txn.time) {
-            topRow.createSpan({ cls: "cost-txn-time", text: txn.time.substring(0, 5) });
-        }
-        
         // 显示商家/收款方
         if (txn.payee) {
             topRow.createSpan({ cls: "cost-txn-payee", text: txn.payee });
@@ -477,16 +472,28 @@ export class CostMainView extends ItemView {
         if (txn.address) {
             const addressEl = topRow.createSpan({ cls: "cost-txn-address" });
             const iconEl = addressEl.createSpan({ cls: "cost-txn-location-icon" });
-            iconEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512" x="0" y="0" viewBox="0 0 512 512" style="enable-background:new 0 0 512 512" xml:space="preserve" class=""><g><path fill="#e0f4fe" d="m508.8 491.09-90-210a15 15 0 0 0-13.788-9.09h-300c-6 0-11.422 3.574-13.785 9.09l-90 210C-3.008 500.969 4.242 512 15.012 512h480c10.746 0 18.031-11.012 13.789-20.91zm0 0" opacity="1" data-original="#e0f4fe"></path><path fill="#bcdcfe" d="M495.012 512h-240V272h150c6 0 11.422 3.578 13.789 9.09l90 210c4.242 9.898-3.04 20.91-13.79 20.91zm0 0" opacity="1" data-original="#bcdcfe"></path><path fill="#159be1" d="M63.707 426.438 51.16 450.71S41.156 474.062 37.754 482H218.8l19.418-2.328-94.028-94.5zm0 0" opacity="1" data-original="#159be1"></path><path fill="#5dc983" d="m444.383 421.492-4.778-15.71L395.125 302h-53.672l-36.32.656-160.942 82.516 94.028 94.5L261.223 482h31.21l35.891-1.004zm0 0" opacity="1" data-original="#5dc983"></path><g fill="#0eab61"><path d="M444.383 421.488 328.324 481l-35.89 1h-31.211l-6.211-.629V328.36l50.12-25.699 24.263-.441 12.058-.219h53.668l44.48 103.781zM114.902 302c-9.195 21.457-45.16 105.36-45.16 105.36l-6.035 19.077 241.422-123.78-29.516-.657zm0 0" fill="#0eab61" opacity="1" data-original="#0eab61"></path><path d="m305.133 302.66-50.121 25.7V302h20.601zm0 0" fill="#0eab61" opacity="1" data-original="#0eab61"></path></g><path fill="#159be1" d="m444.383 421.492-116.059 59.504 29.34 1.004h114.598a262503.92 262503.92 0 0 0-20.809-48.566zm0 0" opacity="1" data-original="#159be1"></path><path fill="#fed941" d="M169.324 390.102 261.223 482H218.8l-77.54-77.54-90.019 46.06 18.5-43.16c2.461-1.258 203.41-104.102 205.871-105.36h65.84zm0 0" opacity="1" data-original="#fed941"></path><path fill="#feb99e" d="m255.012 475.79 6.21 6.21h-6.21zm0 0" opacity="1" data-original="#feb99e"></path><path fill="#fcbe29" d="m341.453 302-17.969 9.2-68.472 35.038V312.54c12.32-6.3 20.133-10.3 20.601-10.539zM451.453 433.43 357.664 482h-65.23l147.168-76.219zm0 0" opacity="1" data-original="#fcbe29"></path><path fill="#ee3616" d="M255.012 0c-73.325 0-135 53.75-135 147 0 94.523 118.633 232.035 123.683 237.844 5.97 6.867 16.657 6.879 22.637 0 5.05-5.809 123.68-143.32 123.68-237.844 0-92.39-62.805-147-135-147zm0 180c-24.813 0-45-20.188-45-45s20.187-45 45-45 45 20.188 45 45-20.188 45-45 45zm0 0" opacity="1" data-original="#ee3616"></path><path fill="#cb0010" d="M255.012 0v90c24.812 0 45 20.191 45 45s-20.188 45-45 45v210c4.172 0 8.332-1.719 11.32-5.16 44.242-50.86 123.68-161.637 123.68-237.84 0-92.39-62.809-147-135-147zm0 0" opacity="1" data-original="#cb0010"></path></g></svg>';
+            iconEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="#ee3616" d="M255.012 0c-73.325 0-135 53.75-135 147 0 94.523 118.633 232.035 123.683 237.844 5.97 6.867 16.657 6.879 22.637 0 5.05-5.809 123.68-143.32 123.68-237.844 0-92.39-62.805-147-135-147zm0 180c-24.813 0-45-20.188-45-45s20.187-45 45-45 45 20.188 45 45-20.188 45-45 45z"/></svg>';
             addressEl.createSpan({ text: txn.address });
         }
 
+        // 第二行：日期、时间、账户、备注
         const bottomRow = infoEl.createDiv({ cls: "cost-txn-bottom-row" });
         
-        // 显示备注（note）
-        if (txn.note) {
-            bottomRow.createSpan({ cls: "cost-txn-note", text: txn.note });
-        }
+        // 日期部分（可点击编辑）
+        const dateEl = bottomRow.createSpan({ cls: "cost-txn-date-clickable" });
+        dateEl.setText(txn.date || "未设置日期");
+        dateEl.addEventListener("click", (e) => {
+            e.stopPropagation();
+            this.showDatePicker(txn);
+        });
+        
+        // 时间部分（可点击编辑）
+        const timeEl = bottomRow.createSpan({ cls: "cost-txn-time-clickable" });
+        timeEl.setText(txn.time || "--:--:--");
+        timeEl.addEventListener("click", (e) => {
+            e.stopPropagation();
+            this.showTimePicker(txn);
+        });
         
         // 显示账户名（不含余额）
         const txnBalances = allRunningBalances.get(txn.path);
@@ -546,6 +553,11 @@ export class CostMainView extends ItemView {
                     this.showAccountSelectionMenu(e, txn, field);
                 });
             }
+        }
+        
+        // 显示备注（note）
+        if (txn.note) {
+            bottomRow.createSpan({ cls: "cost-txn-note", text: txn.note });
         }
         
         // 显示退款信息
@@ -672,11 +684,6 @@ export class CostMainView extends ItemView {
         const topRow = infoEl.createDiv({ cls: "cost-txn-top-row" });
         topRow.createSpan({ cls: "cost-txn-category", text: txn.category || "未分类" });
         
-        // 显示时间
-        if (txn.time) {
-            topRow.createSpan({ cls: "cost-txn-time", text: txn.time.substring(0, 5) }); // 显示 HH:MM
-        }
-        
         // 显示商家/收款方
         if (txn.payee) {
             topRow.createSpan({ cls: "cost-txn-payee", text: txn.payee });
@@ -686,16 +693,28 @@ export class CostMainView extends ItemView {
         if (txn.address) {
             const addressEl = topRow.createSpan({ cls: "cost-txn-address" });
             const iconEl = addressEl.createSpan({ cls: "cost-txn-location-icon" });
-            iconEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="#ee3616" d="M255.012 0c-73.325 0-135 53.75-135 147 0 94.523 118.633 232.035 123.683 237.844 5.97 6.867 16.657 6.879 22.637 0 5.05-5.809 123.68-143.32 123.68-237.844 0-92.39-62.805-147-135-147zm0 180c-24.813 0-45-20.188-45-45s20.187-45 45-45 45 20.188 45 45-20.188 45-45 45z"/><path fill="#cb0010" d="M255.012 0v90c24.812 0 45 20.191 45 45s-20.188 45-45 45v210c4.172 0 8.332-1.719 11.32-5.16 44.242-50.86 123.68-161.637 123.68-237.84 0-92.39-62.809-147-135-147z"/></svg>';
+            iconEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="#ee3616" d="M255.012 0c-73.325 0-135 53.75-135 147 0 94.523 118.633 232.035 123.683 237.844 5.97 6.867 16.657 6.879 22.637 0 5.05-5.809 123.68-143.32 123.68-237.844 0-92.39-62.805-147-135-147zm0 180c-24.813 0-45-20.188-45-45s20.187-45 45-45 45 20.188 45 45-20.188 45-45 45z"/></svg>';
             addressEl.createSpan({ text: txn.address });
         }
 
+        // 第二行：日期、时间、账户、备注
         const bottomRow = infoEl.createDiv({ cls: "cost-txn-bottom-row" });
         
-        // 显示备注（note）
-        if (txn.note) {
-            bottomRow.createSpan({ cls: "cost-txn-note", text: txn.note });
-        }
+        // 日期部分（可点击编辑）
+        const dateEl = bottomRow.createSpan({ cls: "cost-txn-date-clickable" });
+        dateEl.setText(txn.date || "未设置日期");
+        dateEl.addEventListener("click", (e) => {
+            e.stopPropagation();
+            this.showDatePicker(txn);
+        });
+        
+        // 时间部分（可点击编辑）
+        const timeEl = bottomRow.createSpan({ cls: "cost-txn-time-clickable" });
+        timeEl.setText(txn.time || "--:--:--");
+        timeEl.addEventListener("click", (e) => {
+            e.stopPropagation();
+            this.showTimePicker(txn);
+        });
         
         // 显示账户名（带图标，使用统一的气泡样式，可点击更改）
         if (txn.from || txn.to) {
@@ -754,6 +773,11 @@ export class CostMainView extends ItemView {
                     this.showAccountSelectionMenu(e, txn, field);
                 });
             }
+        }
+        
+        // 显示备注（note）
+        if (txn.note) {
+            bottomRow.createSpan({ cls: "cost-txn-note", text: txn.note });
         }
         
         // 显示退款信息
@@ -1462,6 +1486,172 @@ export class CostMainView extends ItemView {
             
         } catch (error) {
             console.error("Failed to update transaction account:", error);
+        }
+    }
+
+    /**
+     * 显示日期选择器
+     */
+    private showDatePicker(txn: TransactionInfo): void {
+        // 创建一个模态框或输入框来选择日期
+        const modal = document.createElement("div");
+        modal.className = "cost-date-picker-modal";
+        
+        const backdrop = document.createElement("div");
+        backdrop.className = "cost-picker-backdrop";
+        backdrop.addEventListener("click", () => {
+            modal.remove();
+            backdrop.remove();
+        });
+        
+        const content = document.createElement("div");
+        content.className = "cost-picker-content";
+        
+        const label = document.createElement("div");
+        label.className = "cost-picker-label";
+        label.textContent = "选择日期";
+        content.appendChild(label);
+        
+        const input = document.createElement("input");
+        input.type = "date";
+        input.className = "cost-picker-input";
+        input.value = txn.date || "";
+        content.appendChild(input);
+        
+        const btnRow = document.createElement("div");
+        btnRow.className = "cost-picker-buttons";
+        
+        const cancelBtn = document.createElement("button");
+        cancelBtn.textContent = "取消";
+        cancelBtn.className = "cost-picker-btn";
+        cancelBtn.addEventListener("click", () => {
+            modal.remove();
+            backdrop.remove();
+        });
+        btnRow.appendChild(cancelBtn);
+        
+        const confirmBtn = document.createElement("button");
+        confirmBtn.textContent = "确定";
+        confirmBtn.className = "cost-picker-btn cost-picker-btn-primary";
+        confirmBtn.addEventListener("click", async () => {
+            if (input.value) {
+                await this.updateTransactionDate(txn, input.value);
+            }
+            modal.remove();
+            backdrop.remove();
+        });
+        btnRow.appendChild(confirmBtn);
+        
+        content.appendChild(btnRow);
+        modal.appendChild(content);
+        
+        document.body.appendChild(backdrop);
+        document.body.appendChild(modal);
+        
+        input.focus();
+    }
+
+    /**
+     * 显示时间选择器
+     */
+    private showTimePicker(txn: TransactionInfo): void {
+        const modal = document.createElement("div");
+        modal.className = "cost-date-picker-modal";
+        
+        const backdrop = document.createElement("div");
+        backdrop.className = "cost-picker-backdrop";
+        backdrop.addEventListener("click", () => {
+            modal.remove();
+            backdrop.remove();
+        });
+        
+        const content = document.createElement("div");
+        content.className = "cost-picker-content";
+        
+        const label = document.createElement("div");
+        label.className = "cost-picker-label";
+        label.textContent = "选择时间";
+        content.appendChild(label);
+        
+        const input = document.createElement("input");
+        input.type = "time";
+        input.step = "1";  // 支持秒
+        input.className = "cost-picker-input";
+        input.value = txn.time || "";
+        content.appendChild(input);
+        
+        const btnRow = document.createElement("div");
+        btnRow.className = "cost-picker-buttons";
+        
+        const cancelBtn = document.createElement("button");
+        cancelBtn.textContent = "取消";
+        cancelBtn.className = "cost-picker-btn";
+        cancelBtn.addEventListener("click", () => {
+            modal.remove();
+            backdrop.remove();
+        });
+        btnRow.appendChild(cancelBtn);
+        
+        const confirmBtn = document.createElement("button");
+        confirmBtn.textContent = "确定";
+        confirmBtn.className = "cost-picker-btn cost-picker-btn-primary";
+        confirmBtn.addEventListener("click", async () => {
+            if (input.value) {
+                await this.updateTransactionTime(txn, input.value);
+            }
+            modal.remove();
+            backdrop.remove();
+        });
+        btnRow.appendChild(confirmBtn);
+        
+        content.appendChild(btnRow);
+        modal.appendChild(content);
+        
+        document.body.appendChild(backdrop);
+        document.body.appendChild(modal);
+        
+        input.focus();
+    }
+
+    /**
+     * 更新交易日期
+     */
+    private async updateTransactionDate(txn: TransactionInfo, newDate: string): Promise<void> {
+        const file = this.app.vault.getAbstractFileByPath(txn.path);
+        if (!file) return;
+        
+        try {
+            await this.app.fileManager.processFrontMatter(file as any, (frontmatter) => {
+                frontmatter.date = newDate;
+            });
+            
+            await new Promise(resolve => setTimeout(resolve, 100));
+            await this.plugin.transactionService.scanTransactions();
+            this.render();
+            
+        } catch (error) {
+            console.error("Failed to update transaction date:", error);
+        }
+    }
+
+    /**
+     * 更新交易时间
+     */
+    private async updateTransactionTime(txn: TransactionInfo, newTime: string): Promise<void> {
+        const file = this.app.vault.getAbstractFileByPath(txn.path);
+        if (!file) return;
+        
+        try {
+            await this.app.fileManager.processFrontMatter(file as any, (frontmatter) => {
+                frontmatter.time = newTime;
+            });
+            
+            await new Promise(resolve => setTimeout(resolve, 100));
+            await this.plugin.transactionService.scanTransactions();
+            this.render();
+            
+        } catch (error) {
+            console.error("Failed to update transaction time:", error);
         }
     }
 }
