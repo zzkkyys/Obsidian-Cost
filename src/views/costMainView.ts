@@ -221,10 +221,41 @@ export class CostMainView extends ItemView {
         // 显示账户名（不含余额）
         const txnBalances = allRunningBalances.get(txn.path);
         if (txn.from || txn.to) {
-            const accountText = txn.txnType === "转账" || txn.txnType === "还款"
-                ? `${txn.from} → ${txn.to}`
-                : (txn.from || txn.to);
-            bottomRow.createSpan({ cls: "cost-txn-account-bubble", text: accountText });
+            const accountBubble = bottomRow.createSpan({ cls: "cost-txn-account-bubble" });
+            
+            if (txn.txnType === "转账" || txn.txnType === "还款") {
+                // 转账/还款：显示两个账户的 icon
+                const fromAccount = this.findAccountByName(txn.from);
+                const toAccount = this.findAccountByName(txn.to);
+                
+                const fromIconEl = accountBubble.createSpan({ cls: "cost-txn-account-icon-small" });
+                if (fromAccount?.icon) {
+                    this.renderCustomIcon(fromIconEl, fromAccount.icon);
+                } else if (fromAccount) {
+                    fromIconEl.setText(this.getAccountIcon(fromAccount.accountKind));
+                }
+                accountBubble.createSpan({ text: `${txn.from} → ` });
+                
+                const toIconEl = accountBubble.createSpan({ cls: "cost-txn-account-icon-small" });
+                if (toAccount?.icon) {
+                    this.renderCustomIcon(toIconEl, toAccount.icon);
+                } else if (toAccount) {
+                    toIconEl.setText(this.getAccountIcon(toAccount.accountKind));
+                }
+                accountBubble.createSpan({ text: txn.to });
+            } else {
+                // 单账户：显示一个 icon
+                const accountName = txn.from || txn.to;
+                const account = this.findAccountByName(accountName);
+                
+                const iconEl = accountBubble.createSpan({ cls: "cost-txn-account-icon-small" });
+                if (account?.icon) {
+                    this.renderCustomIcon(iconEl, account.icon);
+                } else if (account) {
+                    iconEl.setText(this.getAccountIcon(account.accountKind));
+                }
+                accountBubble.createSpan({ text: accountName });
+            }
         }
         
         // 显示退款信息
@@ -342,12 +373,46 @@ export class CostMainView extends ItemView {
         if (txn.memo) {
             bottomRow.createSpan({ cls: "cost-txn-memo", text: txn.memo });
         }
+        
+        // 显示账户名（带图标，使用统一的气泡样式）
         if (txn.from || txn.to) {
-            const accountText = txn.txnType === "转账" || txn.txnType === "还款"
-                ? `${txn.from} → ${txn.to}`
-                : (txn.from || txn.to);
-            bottomRow.createSpan({ cls: "cost-txn-account", text: accountText });
+            const accountBubble = bottomRow.createSpan({ cls: "cost-txn-account-bubble" });
+            
+            if (txn.txnType === "转账" || txn.txnType === "还款") {
+                // 转账/还款：显示两个账户的 icon
+                const fromAccount = this.findAccountByName(txn.from);
+                const toAccount = this.findAccountByName(txn.to);
+                
+                const fromIconEl = accountBubble.createSpan({ cls: "cost-txn-account-icon-small" });
+                if (fromAccount?.icon) {
+                    this.renderCustomIcon(fromIconEl, fromAccount.icon);
+                } else if (fromAccount) {
+                    fromIconEl.setText(this.getAccountIcon(fromAccount.accountKind));
+                }
+                accountBubble.createSpan({ text: `${txn.from} → ` });
+                
+                const toIconEl = accountBubble.createSpan({ cls: "cost-txn-account-icon-small" });
+                if (toAccount?.icon) {
+                    this.renderCustomIcon(toIconEl, toAccount.icon);
+                } else if (toAccount) {
+                    toIconEl.setText(this.getAccountIcon(toAccount.accountKind));
+                }
+                accountBubble.createSpan({ text: txn.to });
+            } else {
+                // 单账户：显示一个 icon
+                const accountName = txn.from || txn.to;
+                const account = this.findAccountByName(accountName);
+                
+                const acctIconEl = accountBubble.createSpan({ cls: "cost-txn-account-icon-small" });
+                if (account?.icon) {
+                    this.renderCustomIcon(acctIconEl, account.icon);
+                } else if (account) {
+                    acctIconEl.setText(this.getAccountIcon(account.accountKind));
+                }
+                accountBubble.createSpan({ text: accountName });
+            }
         }
+        
         // 显示退款信息
         if (txn.refund > 0) {
             bottomRow.createSpan({ cls: "cost-txn-refund", text: `退款 ${txn.refund.toFixed(2)}` });
@@ -371,26 +436,15 @@ export class CostMainView extends ItemView {
         }
         amountEl.addClass(`cost-amount-${txn.txnType}`);
 
-        // 账户余额变化（如果指定了账户）
+        // 账户余额变化（使用统一的气泡样式）
         if (forAccount && runningBalances) {
-            // 显示运行余额：余额前 → 余额后
+            // 显示运行余额气泡
             const balance = runningBalances.get(txn.path);
             if (balance) {
-                const runningEl = amountCol.createDiv({ cls: "cost-txn-running-balance" });
-                runningEl.setText(`${balance.before.toFixed(2)} → ${balance.after.toFixed(2)}`);
+                const balanceChangesEl = amountCol.createDiv({ cls: "cost-txn-balance-changes" });
+                const changeEl = balanceChangesEl.createSpan({ cls: "cost-txn-balance-bubble" });
+                changeEl.setText(`${balance.before.toFixed(0)}→${balance.after.toFixed(0)}`);
             }
-        } else if (forAccount) {
-            // 仅显示余额变化
-            const change = this.getTransactionBalanceChange(txn, forAccount);
-            if (change !== 0) {
-                const changeEl = amountCol.createDiv({ cls: "cost-txn-balance-change" });
-                const changePrefix = change > 0 ? "+" : "";
-                changeEl.setText(`${changePrefix}${change.toFixed(2)}`);
-                changeEl.addClass(change > 0 ? "cost-balance-positive" : "cost-balance-negative");
-            }
-        } else {
-            // 没有指定账户时，显示所有相关账户的变化
-            this.renderAllAccountChanges(amountCol, txn);
         }
 
         // 点击打开交易文件
@@ -710,9 +764,9 @@ export class CostMainView extends ItemView {
             cls: `cost-account-list-item ${isSelected ? "is-selected" : ""}` 
         });
 
-        // 图标
+        // 图标（优先使用自定义图标）
         const iconEl = item.createDiv({ cls: "cost-account-list-icon" });
-        iconEl.setText(this.getAccountIcon(account.accountKind));
+        this.renderAccountIcon(iconEl, account);
 
         // 信息
         const infoEl = item.createDiv({ cls: "cost-account-list-info" });
@@ -818,9 +872,9 @@ export class CostMainView extends ItemView {
     private renderAccountCard(container: HTMLElement, account: AccountInfo): void {
         const card = container.createDiv({ cls: "cost-account-card" });
 
-        // 图标
+        // 图标（优先使用自定义图标）
         const iconEl = card.createDiv({ cls: "cost-account-card-icon" });
-        iconEl.setText(this.getAccountIcon(account.accountKind));
+        this.renderAccountIcon(iconEl, account);
 
         // 名称
         const nameEl = card.createDiv({ cls: "cost-account-card-name" });
@@ -918,5 +972,43 @@ export class CostMainView extends ItemView {
             "other": "💰",
         };
         return icons[accountKind] || "💰";
+    }
+
+    /**
+     * 渲染账户图标（优先使用自定义图标）
+     */
+    private renderAccountIcon(container: HTMLElement, account: AccountInfo): void {
+        if (account.icon) {
+            this.renderCustomIcon(container, account.icon);
+        } else {
+            container.setText(this.getAccountIcon(account.accountKind));
+        }
+    }
+
+    /**
+     * 渲染自定义图标（从 wiki link 格式解析图片）
+     */
+    private renderCustomIcon(container: HTMLElement, iconLink: string): void {
+        const match = iconLink.match(/\[\[(.+?)\]\]/);
+        if (match && match[1]) {
+            const fileName: string = match[1];
+            const files = this.app.vault.getFiles();
+            const imageFile = files.find(f => f.name === fileName || f.path.endsWith(fileName));
+            if (imageFile) {
+                const img = container.createEl("img", { cls: "cost-account-custom-icon" });
+                img.src = this.app.vault.getResourcePath(imageFile);
+                img.alt = fileName;
+                return;
+            }
+        }
+        container.innerHTML = "💰";
+    }
+
+    /**
+     * 根据账户名查找账户信息
+     */
+    private findAccountByName(accountName: string): AccountInfo | undefined {
+        const accounts = this.plugin.accountService.getAccounts();
+        return accounts.find(a => a.fileName === accountName || a.displayName === accountName);
     }
 }
