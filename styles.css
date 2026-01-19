@@ -512,9 +512,27 @@ Obsidian Cost Plugin Styles
 	padding: 2px 6px;
 	border-radius: 8px;
 	background-color: var(--background-modifier-hover);
-	color: var(--text-faint);
-	font-size: 10px;
+	color: var(--text-muted);
+	font-size: 11px;
 	font-family: var(--font-monospace);
+}
+
+/* 净资产增加 - 浅绿色 */
+.cost-txn-balance-bubble.cost-balance-bubble-positive {
+	background-color: rgba(76, 175, 80, 0.15);
+	color: #4caf50;
+}
+
+/* 净资产减少 / 负债增加 - 红色 */
+.cost-txn-balance-bubble.cost-balance-bubble-negative {
+	background-color: rgba(244, 67, 54, 0.15);
+	color: #f44336;
+}
+
+/* 位置图标 */
+.cost-txn-location-icon {
+	font-size: 10px;
+	margin-right: 2px;
 }
 
 .cost-txn-time {

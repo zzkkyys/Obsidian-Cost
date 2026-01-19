@@ -210,7 +210,9 @@ export class CostMainView extends ItemView {
         }
         
         if (txn.payee) {
-            topRow.createSpan({ cls: "cost-txn-payee", text: txn.payee });
+            const payeeEl = topRow.createSpan({ cls: "cost-txn-payee" });
+            payeeEl.createSpan({ cls: "cost-txn-location-icon", text: "📍" });
+            payeeEl.createSpan({ text: txn.payee });
         }
 
         const bottomRow = infoEl.createDiv({ cls: "cost-txn-bottom-row" });
@@ -284,9 +286,31 @@ export class CostMainView extends ItemView {
             const entries: Array<[string, { before: number; after: number }]> = Array.from(txnBalances.entries());
             
             entries.forEach((entry) => {
+                const accountName = entry[0];
                 const balance = entry[1];
                 const changeEl = balanceChangesEl.createSpan({ cls: "cost-txn-balance-bubble" });
                 changeEl.setText(`${balance.before.toFixed(0)}→${balance.after.toFixed(0)}`);
+                
+                // 根据账户类型和余额变化方向设置颜色
+                const account = this.findAccountByName(accountName);
+                const isCredit = account?.accountKind === "credit";
+                const change = balance.after - balance.before;
+                
+                if (isCredit) {
+                    // 信用卡（负债）：余额增加表示负债减少（浅绿），余额减少表示负债增加（红色）
+                    if (change > 0) {
+                        changeEl.addClass("cost-balance-bubble-positive");
+                    } else if (change < 0) {
+                        changeEl.addClass("cost-balance-bubble-negative");
+                    }
+                } else {
+                    // 普通账户（净资产）：余额增加（浅绿），余额减少（红色）
+                    if (change > 0) {
+                        changeEl.addClass("cost-balance-bubble-positive");
+                    } else if (change < 0) {
+                        changeEl.addClass("cost-balance-bubble-negative");
+                    }
+                }
             });
         }
 
@@ -366,7 +390,9 @@ export class CostMainView extends ItemView {
         }
         
         if (txn.payee) {
-            topRow.createSpan({ cls: "cost-txn-payee", text: txn.payee });
+            const payeeEl = topRow.createSpan({ cls: "cost-txn-payee" });
+            payeeEl.createSpan({ cls: "cost-txn-location-icon", text: "📍" });
+            payeeEl.createSpan({ text: txn.payee });
         }
 
         const bottomRow = infoEl.createDiv({ cls: "cost-txn-bottom-row" });
@@ -444,6 +470,27 @@ export class CostMainView extends ItemView {
                 const balanceChangesEl = amountCol.createDiv({ cls: "cost-txn-balance-changes" });
                 const changeEl = balanceChangesEl.createSpan({ cls: "cost-txn-balance-bubble" });
                 changeEl.setText(`${balance.before.toFixed(0)}→${balance.after.toFixed(0)}`);
+                
+                // 根据账户类型和余额变化方向设置颜色
+                const account = this.findAccountByName(forAccount);
+                const isCredit = account?.accountKind === "credit";
+                const change = balance.after - balance.before;
+                
+                if (isCredit) {
+                    // 信用卡（负债）
+                    if (change > 0) {
+                        changeEl.addClass("cost-balance-bubble-positive");
+                    } else if (change < 0) {
+                        changeEl.addClass("cost-balance-bubble-negative");
+                    }
+                } else {
+                    // 普通账户（净资产）
+                    if (change > 0) {
+                        changeEl.addClass("cost-balance-bubble-positive");
+                    } else if (change < 0) {
+                        changeEl.addClass("cost-balance-bubble-negative");
+                    }
+                }
             }
         }
 
