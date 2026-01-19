@@ -468,6 +468,13 @@ Obsidian Cost Plugin Styles
 	color: var(--text-muted);
 }
 
+/* 备注（note） */
+.cost-txn-note {
+	color: var(--text-muted);
+	font-size: 12px;
+	font-style: italic;
+}
+
 .cost-txn-refund {
 	color: var(--color-cyan);
 	font-weight: 500;

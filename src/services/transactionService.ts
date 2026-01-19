@@ -33,8 +33,10 @@ export interface TransactionInfo {
     payee: string;
     /** 地址 */
     address: string;
-    /** 备注 */
+    /** 摘要 */
     memo: string;
+    /** 备注 */
+    note: string;
 }
 
 /**
@@ -141,6 +143,7 @@ export class TransactionService {
             payee: fm.payee || "",
             address: (fm as any).address || "",
             memo: fm.memo || "",
+            note: (fm as any).note || "",
         };
     }
 

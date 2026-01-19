@@ -223,8 +223,10 @@ export class CostMainView extends ItemView {
         }
 
         const bottomRow = infoEl.createDiv({ cls: "cost-txn-bottom-row" });
-        if (txn.memo) {
-            bottomRow.createSpan({ cls: "cost-txn-memo", text: txn.memo });
+        
+        // 显示备注（note）
+        if (txn.note) {
+            bottomRow.createSpan({ cls: "cost-txn-note", text: txn.note });
         }
         
         // 显示账户名（不含余额）
@@ -410,8 +412,10 @@ export class CostMainView extends ItemView {
         }
 
         const bottomRow = infoEl.createDiv({ cls: "cost-txn-bottom-row" });
-        if (txn.memo) {
-            bottomRow.createSpan({ cls: "cost-txn-memo", text: txn.memo });
+        
+        // 显示备注（note）
+        if (txn.note) {
+            bottomRow.createSpan({ cls: "cost-txn-note", text: txn.note });
         }
         
         // 显示账户名（带图标，使用统一的气泡样式）

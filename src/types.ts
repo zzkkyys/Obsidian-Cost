@@ -38,6 +38,8 @@ export interface TransactionFrontmatter {
     /** 地址 */
     address?: string;
     memo: string;
+    /** 备注 */
+    note?: string;
     tags?: string[];
 }
 
