@@ -72,9 +72,10 @@ export default class CostPlugin extends Plugin {
 		);
 
 		// 添加侧边栏图标
-		this.addRibbonIcon("wallet", "打开账户侧边栏", () => {
+		const ribbonIcon = this.addRibbonIcon("wallet", "打开账户侧边栏", () => {
 			this.activateAccountsSidebar();
 		});
+		ribbonIcon.addClass("cost-ribbon-icon");
 
 		// 添加设置页面
 		this.addSettingTab(new CostSettingTab(this.app, this));

@@ -20,6 +20,11 @@ export class CostMainView extends ItemView {
     private calendarYear: number = new Date().getFullYear();
     private calendarMonth: number = new Date().getMonth();  // 0-11
     
+    // 分类统计时间范围状态
+    private statsRangeType: "month" | "year" | "all" = "month";  // 当月/当年/全部
+    private statsYear: number = new Date().getFullYear();
+    private statsMonth: number = new Date().getMonth();  // 0-11
+    
     // 性能优化：缓存
     private iconCache: Map<string, string> = new Map();  // icon link -> resource path
     private accountNameCache: Map<string, AccountInfo> = new Map();  // account name -> account info
@@ -33,6 +38,14 @@ export class CostMainView extends ItemView {
 
     getViewType(): string {
         return COST_MAIN_VIEW_TYPE;
+    }
+
+    /**
+     * 千分位格式化
+     */
+    private formatThousands(num: number, fixed = 0): string {
+        if (typeof num !== "number" || isNaN(num)) return "0";
+        return num.toFixed(fixed).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
 
     getDisplayText(): string {
@@ -177,7 +190,7 @@ export class CostMainView extends ItemView {
         // 两列布局
         const layout = container.createDiv({ cls: "cost-txn-layout" });
         
-        // 左侧栏：资产汇总 + 日历
+        // 左侧栏：资产汇总 + 日历 + 分类统计
         const leftCol = layout.createDiv({ cls: "cost-txn-left-col" });
         
         // 资产汇总卡片
@@ -185,6 +198,9 @@ export class CostMainView extends ItemView {
         
         // 迷你日历
         this.renderMiniCalendar(leftCol);
+        
+        // 分类消费统计
+        this.renderCategoryStats(leftCol, transactions);
         
         // 右侧栏：交易列表
         const rightCol = layout.createDiv({ cls: "cost-txn-right-col" });
@@ -402,6 +418,367 @@ export class CostMainView extends ItemView {
     }
 
     /**
+     * 渲染分类消费统计Widget（圆形饼图）
+     */
+    private renderCategoryStats(container: HTMLElement, transactions: TransactionInfo[]): void {
+        const widget = container.createDiv({ cls: "cost-category-stats" });
+        
+        // 标题行：标题 + 时间范围选择器
+        const header = widget.createDiv({ cls: "cost-category-stats-header" });
+        header.createSpan({ cls: "cost-category-stats-title", text: "分类统计" });
+        
+        // 时间范围选择器
+        const rangeSelector = header.createDiv({ cls: "cost-stats-range-selector" });
+        this.renderStatsRangeSelector(rangeSelector);
+        
+        // 根据时间范围筛选交易
+        const filteredTransactions = this.filterTransactionsByRange(transactions);
+        
+        // 只统计支出
+        const expenses = filteredTransactions.filter(t => t.txnType === "支出");
+        
+        if (expenses.length === 0) {
+            widget.createDiv({ cls: "cost-category-stats-empty", text: "该时间段暂无支出记录" });
+            return;
+        }
+        
+        // 按分类汇总
+        const categoryMap = new Map<string, number>();
+        let totalExpense = 0;
+        
+        for (const txn of expenses) {
+            const category = txn.category?.split("/")[0] || "未分类";
+            const amount = txn.amount - txn.refund;
+            categoryMap.set(category, (categoryMap.get(category) || 0) + amount);
+            totalExpense += amount;
+        }
+        
+        // 排序（按金额降序）
+        const sorted = Array.from(categoryMap.entries()).sort((a, b) => b[1] - a[1]);
+        
+        // 颜色数组
+        const colors: string[] = [
+            "#4CAF50", "#2196F3", "#FF9800", "#E91E63", 
+            "#9C27B0", "#00BCD4", "#FF5722", "#795548",
+            "#607D8B", "#3F51B5"
+        ];
+        
+        // 主体内容：饼图（带折线标签）
+        const contentEl = widget.createDiv({ cls: "cost-category-content" });
+        
+        // 饼图容器（包含SVG饼图和折线标签）
+        const chartEl = contentEl.createDiv({ cls: "cost-category-chart" });
+        this.renderPieChart(chartEl, sorted, colors, totalExpense);
+    }
+
+    /**
+     * 渲染时间范围选择器
+     */
+    private renderStatsRangeSelector(container: HTMLElement): void {
+        // 当前显示的范围文字
+        let rangeText = "";
+        if (this.statsRangeType === "month") {
+            rangeText = `${this.statsYear}年${this.statsMonth + 1}月`;
+        } else if (this.statsRangeType === "year") {
+            rangeText = `${this.statsYear}年`;
+        } else {
+            rangeText = "全部";
+        }
+        
+        const rangeBtn = container.createDiv({ cls: "cost-stats-range-btn" });
+        rangeBtn.setText(rangeText);
+        rangeBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            this.showStatsRangeMenu(e);
+        });
+    }
+
+    /**
+     * 显示时间范围选择菜单
+     */
+    private showStatsRangeMenu(e: MouseEvent): void {
+        const menu = new Menu();
+        
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+        
+        // 当月
+        menu.addItem(item => {
+            item.setTitle(`本月 (${currentYear}年${currentMonth + 1}月)`);
+            item.setIcon(this.statsRangeType === "month" && 
+                        this.statsYear === currentYear && 
+                        this.statsMonth === currentMonth ? "check" : "calendar");
+            item.onClick(() => {
+                this.statsRangeType = "month";
+                this.statsYear = currentYear;
+                this.statsMonth = currentMonth;
+                this.render();
+            });
+        });
+        
+        // 上月
+        const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+        const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+        menu.addItem(item => {
+            item.setTitle(`上月 (${lastMonthYear}年${lastMonth + 1}月)`);
+            item.setIcon(this.statsRangeType === "month" && 
+                        this.statsYear === lastMonthYear && 
+                        this.statsMonth === lastMonth ? "check" : "calendar");
+            item.onClick(() => {
+                this.statsRangeType = "month";
+                this.statsYear = lastMonthYear;
+                this.statsMonth = lastMonth;
+                this.render();
+            });
+        });
+        
+        menu.addSeparator();
+        
+        // 今年
+        menu.addItem(item => {
+            item.setTitle(`今年 (${currentYear}年)`);
+            item.setIcon(this.statsRangeType === "year" && this.statsYear === currentYear ? "check" : "calendar-range");
+            item.onClick(() => {
+                this.statsRangeType = "year";
+                this.statsYear = currentYear;
+                this.render();
+            });
+        });
+        
+        // 去年
+        menu.addItem(item => {
+            item.setTitle(`去年 (${currentYear - 1}年)`);
+            item.setIcon(this.statsRangeType === "year" && this.statsYear === currentYear - 1 ? "check" : "calendar-range");
+            item.onClick(() => {
+                this.statsRangeType = "year";
+                this.statsYear = currentYear - 1;
+                this.render();
+            });
+        });
+        
+        menu.addSeparator();
+        
+        // 全部
+        menu.addItem(item => {
+            item.setTitle("全部时间");
+            item.setIcon(this.statsRangeType === "all" ? "check" : "infinity");
+            item.onClick(() => {
+                this.statsRangeType = "all";
+                this.render();
+            });
+        });
+        
+        menu.showAtMouseEvent(e);
+    }
+
+    /**
+     * 根据时间范围筛选交易
+     */
+    private filterTransactionsByRange(transactions: TransactionInfo[]): TransactionInfo[] {
+        if (this.statsRangeType === "all") {
+            return transactions;
+        }
+        
+        return transactions.filter(txn => {
+            if (!txn.date) return false;
+            
+            const [yearStr, monthStr] = txn.date.split("-");
+            const txnYear = parseInt(yearStr || "0", 10);
+            const txnMonth = parseInt(monthStr || "0", 10) - 1;  // 转为 0-11
+            
+            if (this.statsRangeType === "year") {
+                return txnYear === this.statsYear;
+            } else if (this.statsRangeType === "month") {
+                return txnYear === this.statsYear && txnMonth === this.statsMonth;
+            }
+            
+            return true;
+        });
+    }
+
+    /**
+     * 渲染SVG饼图（带折线标签）
+     */
+    private renderPieChart(
+        container: HTMLElement, 
+        data: [string, number][], 
+        colors: string[], 
+        total: number
+    ): void {
+        // viewBox缩小减少空白
+        const size = 240;
+        const center = size / 2;
+        const radius = 90;
+        const innerRadius = 58; // 环形图
+        const labelRadius = 93; // 折线起点（紧贴饼图边缘）
+        const labelOuterRadius = 108; // 折线拐点（更短）
+        
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("viewBox", `0 0 ${size} ${size}`);
+        svg.setAttribute("class", "cost-pie-chart");
+        
+        let currentAngle = -90; // 从顶部开始
+        
+        // 限制最多显示6个分类，其余归入"其他"
+        const displayData = data.slice(0, 6);
+        let otherTotal = 0;
+        for (let i = 6; i < data.length; i++) {
+            const entry = data[i];
+            if (entry) otherTotal += entry[1];
+        }
+        if (otherTotal > 0) {
+            displayData.push(["其他", otherTotal]);
+        }
+        
+        // 收集标签位置信息用于避免重叠
+        const labels: { midAngle: number; percent: number; category: string; color: string; value: number }[] = [];
+        
+        for (let i = 0; i < displayData.length; i++) {
+            const entry = displayData[i];
+            if (!entry) continue;
+            const category = entry[0];
+            const value = entry[1];
+            const percent = total > 0 ? value / total : 0;
+            const angle = percent * 360;
+            const color = colors[i % colors.length] || "#607D8B";
+            
+            if (angle > 0) {
+                // 绘制扇区
+                const path = this.createArcPath(center, center, radius, innerRadius, currentAngle, currentAngle + angle);
+                const pathEl = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                pathEl.setAttribute("d", path);
+                pathEl.setAttribute("fill", color);
+                svg.appendChild(pathEl);
+                
+                const midAngle = currentAngle + angle / 2;
+                labels.push({ midAngle, percent, category, color, value });
+                
+                currentAngle += angle;
+            }
+        }
+        
+        // 绘制折线和标签
+        const toRad = (deg: number) => (deg * Math.PI) / 180;
+        
+        for (const label of labels) {
+            const percentValue = label.percent * 100;
+            // 只显示百分比>=3%的标签
+            if (percentValue < 3) continue;
+            
+            const midAngle = label.midAngle;
+            const radMid = toRad(midAngle);
+            
+            // 扇区边缘点（折线起点）
+            const startX = center + labelRadius * Math.cos(radMid);
+            const startY = center + labelRadius * Math.sin(radMid);
+            
+            // 折线拐点
+            const midX = center + labelOuterRadius * Math.cos(radMid);
+            const midY = center + labelOuterRadius * Math.sin(radMid);
+            
+            // 水平延伸的终点
+            const isRight = midAngle > -90 && midAngle < 90;
+            const horizontalLength = 8;
+            const endX = isRight ? midX + horizontalLength : midX - horizontalLength;
+            const endY = midY;
+            
+            // 绘制折线
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+            line.setAttribute("points", `${startX},${startY} ${midX},${midY} ${endX},${endY}`);
+            line.setAttribute("fill", "none");
+            line.setAttribute("stroke", label.color);
+            line.setAttribute("stroke-width", "1.5");
+            svg.appendChild(line);
+            
+            // 在扇区中显示百分比
+            const percentRadius = (radius + innerRadius) / 2;
+            const percentX = center + percentRadius * Math.cos(radMid);
+            const percentY = center + percentRadius * Math.sin(radMid);
+            
+            // 百分比只在足够大的扇区显示
+            if (percentValue >= 8) {
+                const percentText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                percentText.setAttribute("x", String(percentX));
+                percentText.setAttribute("y", String(percentY + 3));
+                percentText.setAttribute("text-anchor", "middle");
+                percentText.setAttribute("class", "cost-pie-percent");
+                percentText.textContent = `${percentValue.toFixed(0)}%`;
+                svg.appendChild(percentText);
+            }
+            
+            // 分类名标签
+            const labelText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            labelText.setAttribute("x", String(endX + (isRight ? 4 : -4)));
+            labelText.setAttribute("y", String(endY + 4));
+            labelText.setAttribute("text-anchor", isRight ? "start" : "end");
+            labelText.setAttribute("class", "cost-pie-category-label");
+            labelText.textContent = label.category;
+            svg.appendChild(labelText);
+        }
+        
+        // 中心文字：总支出
+        const textGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        
+        const labelText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        labelText.setAttribute("x", String(center));
+        labelText.setAttribute("y", String(center - 6));
+        labelText.setAttribute("text-anchor", "middle");
+        labelText.setAttribute("class", "cost-pie-label");
+        labelText.textContent = "总支出";
+        textGroup.appendChild(labelText);
+        
+        const valueText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        valueText.setAttribute("x", String(center));
+        valueText.setAttribute("y", String(center + 14));
+        valueText.setAttribute("text-anchor", "middle");
+        valueText.setAttribute("class", "cost-pie-value");
+        valueText.textContent = `¥${this.formatCompact(total)}`;
+        textGroup.appendChild(valueText);
+        
+        svg.appendChild(textGroup);
+        container.appendChild(svg);
+    }
+
+    /**
+     * 创建圆弧路径（用于饼图）
+     */
+    private createArcPath(
+        cx: number, cy: number, 
+        outerRadius: number, innerRadius: number,
+        startAngle: number, endAngle: number
+    ): string {
+        const toRad = (deg: number) => (deg * Math.PI) / 180;
+        
+        const startOuter = {
+            x: cx + outerRadius * Math.cos(toRad(startAngle)),
+            y: cy + outerRadius * Math.sin(toRad(startAngle))
+        };
+        const endOuter = {
+            x: cx + outerRadius * Math.cos(toRad(endAngle)),
+            y: cy + outerRadius * Math.sin(toRad(endAngle))
+        };
+        const startInner = {
+            x: cx + innerRadius * Math.cos(toRad(endAngle)),
+            y: cy + innerRadius * Math.sin(toRad(endAngle))
+        };
+        const endInner = {
+            x: cx + innerRadius * Math.cos(toRad(startAngle)),
+            y: cy + innerRadius * Math.sin(toRad(startAngle))
+        };
+        
+        const largeArc = (endAngle - startAngle) > 180 ? 1 : 0;
+        
+        return [
+            `M ${startOuter.x} ${startOuter.y}`,
+            `A ${outerRadius} ${outerRadius} 0 ${largeArc} 1 ${endOuter.x} ${endOuter.y}`,
+            `L ${startInner.x} ${startInner.y}`,
+            `A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${endInner.x} ${endInner.y}`,
+            `Z`
+        ].join(' ');
+    }
+
+    /**
      * 获取所有账户的期初余额映射
      */
     private getAccountOpeningBalances(): Map<string, number> {
@@ -588,40 +965,69 @@ export class CostMainView extends ItemView {
         }
         amountEl.addClass(`cost-amount-${txn.txnType}`);
 
-        // 在金额下方显示账户余额变化（只显示余额变化，不显示账户名）
+        // 在金额下方显示账户余额变化（转账/还款显示两个账户及其余额变化）
         if (txnBalances && txnBalances.size > 0) {
             const balanceChangesEl = amountCol.createDiv({ cls: "cost-txn-balance-changes" });
             const entries: Array<[string, { before: number; after: number }]> = Array.from(txnBalances.entries());
-            
-            entries.forEach((entry) => {
-                const accountName = entry[0];
-                const balance = entry[1];
-                const changeEl = balanceChangesEl.createSpan({ cls: "cost-txn-balance-bubble" });
-                changeEl.createSpan({ text: balance.before.toFixed(0) });
-                changeEl.createSpan({ cls: "cost-txn-balance-arrow", text: "→" });
-                changeEl.createSpan({ text: balance.after.toFixed(0) });
-                
-                // 根据账户类型和余额变化方向设置颜色
-                const account = this.findAccountByName(accountName);
-                const isCredit = account?.accountKind === "credit";
-                const change = balance.after - balance.before;
-                
-                if (isCredit) {
-                    // 信用卡（负债）：余额增加表示负债减少（浅绿），余额减少表示负债增加（红色）
-                    if (change > 0) {
-                        changeEl.addClass("cost-balance-bubble-positive");
-                    } else if (change < 0) {
-                        changeEl.addClass("cost-balance-bubble-negative");
+            // 对于转账/还款，优先显示 from/to 两个账户，其他类型保持原样
+            if ((txn.txnType === "转账" || txn.txnType === "还款") && (txn.from || txn.to)) {
+                const showAccounts: string[] = [];
+                if (txn.from && txnBalances.has(txn.from)) showAccounts.push(txn.from);
+                if (txn.to && txnBalances.has(txn.to)) showAccounts.push(txn.to);
+                showAccounts.forEach(accountName => {
+                    const balance = txnBalances.get(accountName)!;
+                    const changeEl = balanceChangesEl.createSpan({ cls: "cost-txn-balance-bubble" });
+                    // 不显示账户名
+                    const beforeVal = balance.before;
+                    const afterVal = balance.after;
+                    const beforeSpan = changeEl.createSpan({ text: this.formatThousands(beforeVal, 0) });
+                    const arrowSpan = changeEl.createSpan({ cls: "cost-txn-balance-arrow", text: "→" });
+                    const afterSpan = changeEl.createSpan({ text: this.formatThousands(afterVal, 0) });
+                    // 着色：正数绿色，负数红色
+                    if (beforeVal > 0) beforeSpan.addClass("cost-balance-positive");
+                    else if (beforeVal < 0) beforeSpan.addClass("cost-balance-negative");
+                    if (afterVal > 0) afterSpan.addClass("cost-balance-positive");
+                    else if (afterVal < 0) afterSpan.addClass("cost-balance-negative");
+                    // 颜色
+                    const account = this.findAccountByName(accountName);
+                    const isCredit = account?.accountKind === "credit";
+                    const change = balance.after - balance.before;
+                    if (isCredit) {
+                        if (change > 0) changeEl.addClass("cost-balance-bubble-positive");
+                        else if (change < 0) changeEl.addClass("cost-balance-bubble-negative");
+                    } else {
+                        if (change > 0) changeEl.addClass("cost-balance-bubble-positive");
+                        else if (change < 0) changeEl.addClass("cost-balance-bubble-negative");
                     }
-                } else {
-                    // 普通账户（净资产）：余额增加（浅绿），余额减少（红色）
-                    if (change > 0) {
-                        changeEl.addClass("cost-balance-bubble-positive");
-                    } else if (change < 0) {
-                        changeEl.addClass("cost-balance-bubble-negative");
+                });
+            } else {
+                // 其他类型，原样显示
+                entries.forEach((entry) => {
+                    const accountName = entry[0];
+                    const balance = entry[1];
+                    const changeEl = balanceChangesEl.createSpan({ cls: "cost-txn-balance-bubble" });
+                    const beforeVal = balance.before;
+                    const afterVal = balance.after;
+                    const beforeSpan = changeEl.createSpan({ text: this.formatThousands(beforeVal, 0) });
+                    changeEl.createSpan({ cls: "cost-txn-balance-arrow", text: "→" });
+                    const afterSpan = changeEl.createSpan({ text: this.formatThousands(afterVal, 0) });
+                    if (beforeVal > 0) beforeSpan.addClass("cost-balance-positive");
+                    else if (beforeVal < 0) beforeSpan.addClass("cost-balance-negative");
+                    if (afterVal > 0) afterSpan.addClass("cost-balance-positive");
+                    else if (afterVal < 0) afterSpan.addClass("cost-balance-negative");
+                    // 颜色
+                    const account = this.findAccountByName(accountName);
+                    const isCredit = account?.accountKind === "credit";
+                    const change = balance.after - balance.before;
+                    if (isCredit) {
+                        if (change > 0) changeEl.addClass("cost-balance-bubble-positive");
+                        else if (change < 0) changeEl.addClass("cost-balance-bubble-negative");
+                    } else {
+                        if (change > 0) changeEl.addClass("cost-balance-bubble-positive");
+                        else if (change < 0) changeEl.addClass("cost-balance-bubble-negative");
                     }
-                }
-            });
+                });
+            }
         }
 
         // 点击打开交易文件
@@ -820,9 +1226,15 @@ export class CostMainView extends ItemView {
             if (balance) {
                 const balanceChangesEl = amountCol.createDiv({ cls: "cost-txn-balance-changes" });
                 const changeEl = balanceChangesEl.createSpan({ cls: "cost-txn-balance-bubble" });
-                changeEl.createSpan({ text: balance.before.toFixed(0) });
+                const beforeVal = balance.before;
+                const afterVal = balance.after;
+                const beforeSpan = changeEl.createSpan({ text: this.formatThousands(beforeVal, 0) });
                 changeEl.createSpan({ cls: "cost-txn-balance-arrow", text: "→" });
-                changeEl.createSpan({ text: balance.after.toFixed(0) });
+                const afterSpan = changeEl.createSpan({ text: this.formatThousands(afterVal, 0) });
+                if (beforeVal > 0) beforeSpan.addClass("cost-balance-positive");
+                else if (beforeVal < 0) beforeSpan.addClass("cost-balance-negative");
+                if (afterVal > 0) afterSpan.addClass("cost-balance-positive");
+                else if (afterVal < 0) afterSpan.addClass("cost-balance-negative");
                 
                 // 根据账户类型和余额变化方向设置颜色
                 const account = this.findAccountByName(forAccount);
@@ -1138,7 +1550,7 @@ export class CostMainView extends ItemView {
             totalBalance += this.calculateBalance(account);
         }
         const totalEl = groupHeader.createSpan({ cls: "cost-account-group-total" });
-        totalEl.setText(totalBalance.toFixed(2));
+        totalEl.setText(this.formatNumber(totalBalance));
         if (totalBalance >= 0) {
             totalEl.addClass("cost-balance-positive");
         } else {
@@ -1179,7 +1591,7 @@ export class CostMainView extends ItemView {
         // 余额（放在右边）
         const balance = this.calculateBalance(account);
         const balanceEl = item.createDiv({ cls: "cost-account-list-balance" });
-        balanceEl.setText(`${balance.toFixed(2)}`);
+        balanceEl.setText(this.formatThousands(balance, 2));
         if (balance >= 0) {
             balanceEl.addClass("cost-balance-positive");
         } else {

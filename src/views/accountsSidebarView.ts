@@ -234,7 +234,7 @@ export class AccountsSidebarView extends ItemView {
             totalBalance += this.calculateBalance(account);
         }
         const totalEl = groupHeader.createSpan({ cls: "cost-account-group-total" });
-        totalEl.setText(totalBalance.toFixed(2));
+        totalEl.setText(this.formatNumber(totalBalance));
         if (totalBalance >= 0) {
             totalEl.addClass("cost-balance-positive");
         } else {
@@ -277,7 +277,7 @@ export class AccountsSidebarView extends ItemView {
         // 余额
         const balance = this.calculateBalance(account);
         const balanceEl = item.createDiv({ cls: "cost-account-balance" });
-        balanceEl.setText(`${balance.toFixed(2)} ${account.currency}`);
+        balanceEl.setText(`${this.formatNumber(balance)} ${account.currency}`);
         if (balance >= 0) {
             balanceEl.addClass("cost-balance-positive");
         } else {

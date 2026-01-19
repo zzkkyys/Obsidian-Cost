@@ -4,6 +4,21 @@ Obsidian Cost Plugin Styles
 
 */
 
+:root {
+	--cost-icon-accent: #f59e0b;
+}
+
+.cost-ribbon-icon {
+	color: var(--cost-icon-accent);
+}
+
+.workspace-tab-header[data-type="cost-accounts-sidebar"] .workspace-tab-header-inner-icon,
+.workspace-tab-header[data-type="cost-main-view"] .workspace-tab-header-inner-icon,
+.workspace-tab-header[data-type="cost-accounts-sidebar"].is-active .workspace-tab-header-inner-icon,
+.workspace-tab-header[data-type="cost-main-view"].is-active .workspace-tab-header-inner-icon {
+	color: var(--cost-icon-accent) !important;
+}
+
 /* 账户建议样式（通用） */
 .account-suggestion {
 	display: flex;
@@ -399,6 +414,7 @@ Obsidian Cost Plugin Styles
 	display: flex;
 	gap: 20px;
 	height: 100%;
+	overflow: hidden;
 }
 
 .cost-txn-left-col {
@@ -407,12 +423,8 @@ Obsidian Cost Plugin Styles
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
-	position: sticky;
-	top: 0;
-	align-self: flex-start;
-	max-height: calc(100vh - 120px);
-	overflow-y: auto;
 	padding: 10px;
+	overflow-y: auto;
 	scrollbar-width: none;
 	-ms-overflow-style: none;
 }
@@ -424,6 +436,13 @@ Obsidian Cost Plugin Styles
 .cost-txn-right-col {
 	flex: 1;
 	min-width: 0;
+	overflow-y: auto;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+
+.cost-txn-right-col::-webkit-scrollbar {
+	display: none;
 }
 
 /* 迷你日历 */
@@ -565,6 +584,112 @@ Obsidian Cost Plugin Styles
 .cost-mini-day-today .cost-mini-day-expense,
 .cost-mini-day-today .cost-mini-day-count {
 	color: rgba(255, 255, 255, 0.9);
+}
+
+/* ========================================
+   分类消费统计Widget
+   ======================================== */
+
+.cost-category-stats {
+	background: var(--background-primary);
+	border-radius: 12px;
+	padding: 12px;
+	border: 1px solid var(--background-modifier-border);
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.cost-category-stats-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 12px;
+}
+
+.cost-category-stats-title {
+	font-size: 14px;
+	font-weight: 600;
+}
+
+/* 时间范围选择器 */
+.cost-stats-range-selector {
+	display: flex;
+	align-items: center;
+}
+
+.cost-stats-range-btn {
+	font-size: 11px;
+	color: var(--text-muted);
+	background: var(--background-secondary);
+	padding: 3px 8px;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+
+.cost-stats-range-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.cost-category-stats-empty {
+	color: var(--text-muted);
+	text-align: center;
+	padding: 16px;
+	font-size: 13px;
+}
+
+/* 饼图布局 */
+.cost-category-content {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	padding: 0;
+	height: 240px;
+}
+
+.cost-category-chart {
+	width: 100%;
+	max-width: 240px;
+    margin-top: -20px;
+    margin-bottom: -20px;
+	aspect-ratio: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+}
+
+.cost-pie-chart {
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+	display: block;
+}
+
+.cost-pie-label {
+	font-size: 12px;
+	fill: var(--text-muted);
+}
+
+.cost-pie-value {
+	font-size: 16px;
+	font-weight: 600;
+	fill: var(--text-normal);
+}
+
+/* 饼图扇区内的百分比 */
+.cost-pie-percent {
+	font-size: 10px;
+	font-weight: 600;
+	fill: white;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* 饼图分类标签 */
+.cost-pie-category-label {
+	font-size: 11px;
+	fill: var(--text-normal);
 }
 
 /* 日期分组高亮 */
@@ -869,26 +994,29 @@ Obsidian Cost Plugin Styles
 }
 
 /* 余额变动气泡（右侧） */
+/* 余额变动气泡统一灰色背景，字体颜色由子元素控制 */
 .cost-txn-balance-bubble {
 	display: inline-block;
 	padding: 2px 6px;
 	border-radius: 8px;
 	background-color: var(--background-modifier-hover);
-	color: var(--text-muted);
 	font-size: 11px;
 	font-family: var(--font-monospace);
 }
 
 /* 净资产增加 - 浅绿色 */
-.cost-txn-balance-bubble.cost-balance-bubble-positive {
-	background-color: rgba(76, 175, 80, 0.15);
-	color: #4caf50;
-}
-
-/* 净资产减少 / 负债增加 - 红色 */
+/* 不区分正负，统一灰色背景 */
+.cost-txn-balance-bubble.cost-balance-bubble-positive,
 .cost-txn-balance-bubble.cost-balance-bubble-negative {
-	background-color: rgba(244, 67, 54, 0.15);
-	color: #f44336;
+	background-color: var(--background-modifier-hover);
+	color: var(--text-muted);
+}
+/* 余额变动正负色 */
+.cost-balance-positive {
+	color: var(--color-green);
+}
+.cost-balance-negative {
+	color: var(--color-red);
 }
 
 /* 余额变动箭头 - 黑色 */
