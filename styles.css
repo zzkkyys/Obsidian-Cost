@@ -1,0 +1,751 @@
+/*
+
+Obsidian Cost Plugin Styles
+
+*/
+
+/* 账户建议样式（通用） */
+.account-suggestion {
+	display: flex;
+	flex-direction: column;
+	padding: 4px 0;
+}
+
+.account-suggestion-name {
+	font-weight: 500;
+	color: var(--text-normal);
+}
+
+.account-suggestion-detail {
+	font-size: 0.85em;
+	color: var(--text-muted);
+	margin-top: 2px;
+}
+
+/* Properties 面板账户建议弹窗 */
+.account-property-suggest {
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+	max-height: 300px;
+	overflow-y: auto;
+	padding: 4px 0;
+}
+
+.account-property-suggest .suggestion-item {
+	padding: 8px 12px;
+	cursor: pointer;
+}
+
+.account-property-suggest .suggestion-item:hover,
+.account-property-suggest .suggestion-item.is-selected {
+	background: var(--background-modifier-hover);
+}
+
+.account-property-suggest .account-suggestion-name {
+	font-weight: 500;
+	color: var(--text-normal);
+}
+
+.account-property-suggest .account-suggestion-detail {
+	font-size: 0.85em;
+	color: var(--text-muted);
+	margin-top: 2px;
+}
+
+/* ========================================
+   侧边栏账户视图
+   ======================================== */
+
+.cost-accounts-sidebar {
+	padding: 0;
+}
+
+.cost-sidebar-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 12px 16px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.cost-sidebar-header h4 {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.cost-refresh-btn {
+	background: none;
+	border: none;
+	cursor: pointer;
+	font-size: 16px;
+	color: var(--text-muted);
+	padding: 4px 8px;
+	border-radius: 4px;
+}
+
+.cost-refresh-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+/* 余额汇总卡片 - 现代设计 */
+.cost-balance-summary-card {
+	margin: 10px 12px;
+	padding: 14px 16px;
+	background: var(--background-secondary);
+	border-radius: 12px;
+	border: 1px solid var(--background-modifier-border);
+}
+
+/* 主数字区域 */
+.cost-summary-main {
+	text-align: center;
+	padding-bottom: 10px;
+}
+
+.cost-summary-main-label {
+	font-size: 11px;
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	margin-bottom: 4px;
+}
+
+.cost-summary-main-value {
+	display: flex;
+	align-items: baseline;
+	justify-content: center;
+	gap: 2px;
+}
+
+.cost-summary-currency {
+	font-size: 16px;
+	font-weight: 500;
+	color: var(--text-muted);
+}
+
+.cost-summary-amount {
+	font-size: 28px;
+	font-weight: 700;
+	font-family: var(--font-monospace);
+	letter-spacing: -1px;
+}
+
+.cost-summary-negative::before {
+	content: "-";
+	font-size: 20px;
+	margin-right: 2px;
+}
+
+/* 进度条 */
+.cost-summary-progress {
+	padding: 8px 0;
+}
+
+.cost-summary-progress-bar {
+	height: 6px;
+	background: var(--color-red-rgb, rgba(255, 100, 100, 0.3));
+	border-radius: 3px;
+	overflow: hidden;
+}
+
+.cost-summary-progress-asset {
+	height: 100%;
+	background: linear-gradient(90deg, var(--color-green), #4ade80);
+	border-radius: 3px;
+	transition: width 0.3s ease;
+}
+
+/* 详情区域 */
+.cost-summary-detail {
+	display: flex;
+	justify-content: center;
+	gap: 24px;
+	padding-top: 8px;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.cost-summary-detail-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.cost-summary-detail-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+}
+
+.cost-dot-asset {
+	background: var(--color-green);
+}
+
+.cost-dot-liability {
+	background: var(--color-red);
+}
+
+.cost-summary-detail-label {
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
+.cost-summary-detail-value {
+	font-size: 12px;
+	font-weight: 600;
+	font-family: var(--font-monospace);
+	color: var(--text-normal);
+}
+
+.cost-accounts-list {
+	padding: 8px 0;
+}
+
+/* 账户分组 */
+.cost-account-group {
+	margin-bottom: 8px;
+}
+
+.cost-account-group-header {
+	display: flex;
+	align-items: center;
+	padding: 8px 16px;
+	background: var(--background-secondary);
+	border-bottom: 1px solid var(--background-modifier-border);
+	gap: 6px;
+	font-size: 12px;
+	color: var(--text-muted);
+	position: sticky;
+	top: 0;
+	z-index: 1;
+}
+
+.cost-account-group-icon {
+	font-size: 14px;
+}
+
+.cost-account-group-name {
+	font-weight: 600;
+	color: var(--text-normal);
+}
+
+.cost-account-group-count {
+	color: var(--text-faint);
+}
+
+.cost-account-group-total {
+	margin-left: auto;
+	font-weight: 600;
+	font-size: 13px;
+}
+
+.cost-account-group-list {
+	/* 分组内的账户列表 */
+}
+
+.cost-account-item {
+	display: flex;
+	align-items: center;
+	padding: 8px 16px;
+	cursor: pointer;
+	gap: 12px;
+}
+
+.cost-account-item:hover {
+	background: var(--background-modifier-hover);
+}
+
+.cost-account-icon {
+	font-size: 20px;
+	width: 32px;
+	height: 32px;
+	text-align: center;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.cost-account-custom-icon {
+	width: 24px;
+	height: 24px;
+	object-fit: contain;
+	border-radius: 4px;
+}
+
+.cost-account-info {
+	flex: 1;
+	min-width: 0;
+}
+
+.cost-account-name {
+	font-weight: 500;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.cost-account-detail {
+	font-size: 12px;
+	color: var(--text-muted);
+	margin-top: 2px;
+}
+
+.cost-account-balance {
+	font-weight: 600;
+	font-size: 13px;
+	white-space: nowrap;
+}
+
+.cost-balance-positive {
+	color: var(--color-green);
+}
+
+.cost-balance-negative {
+	color: var(--color-red);
+}
+
+.cost-empty-message {
+	text-align: center;
+	padding: 32px 16px;
+	color: var(--text-muted);
+}
+
+/* ========================================
+   主视图
+   ======================================== */
+
+.cost-main-view {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
+.cost-tab-bar {
+	display: flex;
+	align-items: center;
+	border-bottom: 1px solid var(--background-modifier-border);
+	padding: 0 8px;
+	gap: 4px;
+}
+
+.cost-tab {
+	padding: 12px 16px;
+	cursor: pointer;
+	color: var(--text-muted);
+	border-bottom: 2px solid transparent;
+	margin-bottom: -1px;
+}
+
+.cost-tab:hover {
+	color: var(--text-normal);
+}
+
+.cost-tab.is-active {
+	color: var(--text-accent);
+	border-bottom-color: var(--text-accent);
+}
+
+.cost-tab-refresh {
+	margin-left: auto;
+	padding: 8px;
+	cursor: pointer;
+	color: var(--text-muted);
+	border-radius: 4px;
+}
+
+.cost-tab-refresh:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.cost-view-content {
+	flex: 1;
+	overflow-y: auto;
+	padding: 16px;
+}
+
+/* 日期分组 */
+.cost-date-group {
+	margin-bottom: 24px;
+}
+
+.cost-date-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 8px 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+	margin-bottom: 8px;
+}
+
+.cost-date-text {
+	font-weight: 600;
+	color: var(--text-normal);
+}
+
+.cost-date-summary {
+	display: flex;
+	gap: 12px;
+	font-size: 13px;
+}
+
+.cost-income {
+	color: var(--color-green);
+}
+
+.cost-expense {
+	color: var(--color-red);
+}
+
+/* 交易项 */
+.cost-transactions-list {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.cost-transaction-item {
+	display: flex;
+	align-items: center;
+	padding: 12px;
+	border-radius: 8px;
+	cursor: pointer;
+	gap: 12px;
+	background: var(--background-secondary);
+}
+
+.cost-transaction-item:hover {
+	background: var(--background-modifier-hover);
+}
+
+.cost-txn-icon {
+	font-size: 24px;
+	width: 40px;
+	height: 40px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--background-primary);
+	border-radius: 8px;
+}
+
+.cost-txn-info {
+	flex: 1;
+	min-width: 0;
+}
+
+.cost-txn-top-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.cost-txn-category {
+	font-weight: 500;
+}
+
+.cost-txn-payee {
+	color: var(--text-muted);
+	font-size: 13px;
+}
+
+.cost-txn-bottom-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 4px;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.cost-txn-refund {
+	color: var(--color-cyan);
+	font-weight: 500;
+}
+
+/* 账户气泡（左侧） */
+.cost-txn-account-bubble {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 10px;
+	background-color: var(--background-secondary);
+	color: var(--text-muted);
+	font-size: 11px;
+}
+
+/* 余额变化（显示在金额下方） */
+.cost-txn-balance-changes {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 4px;
+	margin-top: 4px;
+	flex-wrap: wrap;
+}
+
+/* 余额变动气泡（右侧） */
+.cost-txn-balance-bubble {
+	display: inline-block;
+	padding: 2px 6px;
+	border-radius: 8px;
+	background-color: var(--background-modifier-hover);
+	color: var(--text-faint);
+	font-size: 10px;
+	font-family: var(--font-monospace);
+}
+
+.cost-txn-time {
+	font-size: 11px;
+	color: var(--text-faint);
+	margin-left: 6px;
+}
+
+.cost-txn-amount {
+	font-weight: 600;
+	font-size: 15px;
+}
+
+.cost-txn-original-amount {
+	font-size: 11px;
+	color: var(--text-muted);
+	text-decoration: line-through;
+}
+
+.cost-amount-income {
+	color: var(--color-green);
+}
+
+.cost-amount-expense {
+	color: var(--color-red);
+}
+
+.cost-amount-transfer {
+	color: var(--text-muted);
+}
+
+/* 中文交易类型样式 */
+.cost-amount-收入 {
+	color: var(--color-green);
+}
+
+.cost-amount-支出 {
+	color: var(--color-red);
+}
+
+.cost-amount-还款 {
+	color: var(--color-orange);
+}
+
+.cost-amount-转账 {
+	color: var(--text-muted);
+}
+
+/* 交易金额列 */
+.cost-txn-amount-col {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 2px;
+}
+
+.cost-txn-balance-change {
+	font-size: 11px;
+	opacity: 0.9;
+}
+
+.cost-txn-account-changes {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 1px;
+}
+
+.cost-txn-account-change {
+	font-size: 10px;
+	opacity: 0.85;
+}
+
+.cost-txn-running-balance {
+	font-size: 11px;
+	color: var(--text-muted);
+	white-space: nowrap;
+}
+
+/* 账户卡片网格 - 固定两列 */
+.cost-accounts-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 12px;
+}
+
+/* ========================================
+   账户标签页 - 左右两列布局
+   ======================================== */
+
+.cost-accounts-layout {
+	display: flex;
+	gap: 16px;
+	height: 100%;
+}
+
+.cost-accounts-left {
+	width: 280px;
+	min-width: 200px;
+	flex-shrink: 0;
+	display: flex;
+	flex-direction: column;
+	border-right: 1px solid var(--background-modifier-border);
+	padding-right: 16px;
+}
+
+.cost-accounts-right {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	overflow-y: auto;
+}
+
+.cost-col-header {
+	margin-bottom: 12px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.cost-col-header h4 {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.cost-accounts-col-list {
+	flex: 1;
+	overflow-y: auto;
+}
+
+.cost-account-list-item {
+	display: flex;
+	align-items: center;
+	padding: 10px 12px;
+	gap: 10px;
+	border-radius: 6px;
+	cursor: pointer;
+	margin-bottom: 4px;
+}
+
+.cost-account-list-item:hover {
+	background: var(--background-modifier-hover);
+}
+
+.cost-account-list-item.is-selected {
+	background: var(--background-modifier-active-hover);
+	border-left: 3px solid var(--text-accent);
+}
+
+.cost-account-list-icon {
+	font-size: 20px;
+	width: 28px;
+	text-align: center;
+}
+
+.cost-account-list-info {
+	flex: 1;
+	min-width: 0;
+}
+
+.cost-account-list-name {
+	font-weight: 500;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.cost-account-list-count {
+	font-size: 11px;
+	color: var(--text-muted);
+	margin-top: 2px;
+}
+
+.cost-account-list-balance {
+	font-weight: 600;
+	font-size: 13px;
+	text-align: right;
+	white-space: nowrap;
+}
+
+.cost-txn-col-list {
+	flex: 1;
+	overflow-y: auto;
+}
+
+.cost-select-hint {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 200px;
+	color: var(--text-faint);
+}
+
+.cost-account-card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: 20px 16px;
+	background: var(--background-secondary);
+	border-radius: 12px;
+	cursor: pointer;
+	text-align: center;
+}
+
+.cost-account-card:hover {
+	background: var(--background-modifier-hover);
+}
+
+.cost-account-card-icon {
+	font-size: 32px;
+	margin-bottom: 12px;
+}
+
+.cost-account-card-name {
+	font-weight: 600;
+	margin-bottom: 4px;
+}
+
+.cost-account-card-type {
+	font-size: 12px;
+	color: var(--text-muted);
+	margin-bottom: 8px;
+}
+
+.cost-account-card-count {
+	font-size: 12px;
+	color: var(--text-faint);
+}
+
+/* 返回按钮 */
+.cost-back-btn {
+	display: inline-flex;
+	align-items: center;
+	padding: 8px 12px;
+	margin-bottom: 16px;
+	cursor: pointer;
+	color: var(--text-muted);
+	border-radius: 6px;
+}
+
+.cost-back-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.cost-account-header {
+	margin-bottom: 16px;
+}
+
+.cost-account-header h3 {
+	margin: 0;
+}
