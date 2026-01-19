@@ -1,11 +1,11 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
+	"id": "Obsidian-zzkkyys-Cost",
+	"name": "OBsidian Cost",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
+	"description": "A personal finance management plugin for Obsidian.",
+	"author": "zzkkyys",
+	"authorUrl": "https://github.com/zzkkyys",
 	"fundingUrl": "https://obsidian.md/pricing",
 	"isDesktopOnly": false
 }

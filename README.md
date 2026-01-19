@@ -1,90 +1,130 @@
-# Obsidian Sample Plugin
+# Obsidian Cost
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+一个功能强大的 Obsidian 记账插件，帮助你在 Obsidian 中管理个人财务。
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+## ✨ 功能特性
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open modal (simple)" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+### 📊 交易管理
+- 支持多种交易类型：收入、支出、转账、还款
+- 按日期分组显示交易记录
+- 显示每笔交易的账户余额变动
+- 支持退款记录
+- 点击日期/时间可快速编辑
 
-## First time developing plugins?
+### 🏦 账户管理
+- 支持多种账户类型：银行卡、信用卡、电子钱包、现金、投资账户、预付卡等
+- 自动计算账户当前余额
+- 支持自定义账户图标
+- 账户分组显示，自动计算分组小计
 
-Quick starting guide for new plugin devs:
+### 💰 资产概览
+- 净资产汇总卡片
+- 资产与负债比例可视化
+- 实时余额变动追踪
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+### 📅 日历视图
+- 迷你日历显示每日收支统计
+- 月度收支汇总
+- 点击日期快速跳转到对应交易
 
-## Releasing new releases
+### 🎨 现代化 UI
+- 两栏布局设计
+- 灰色背景 + 白色卡片的现代风格
+- 响应式设计，适配不同屏幕尺寸
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+## 📁 数据结构
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
-
-## Adding your plugin to the community plugin list
-
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
-
-## How to use
-
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
-
-## Manually installing the plugin
-
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
-
-## Improve code quality with eslint
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- This project already has eslint preconfigured, you can invoke a check by running`npm run lint`
-- Together with a custom eslint [plugin](https://github.com/obsidianmd/eslint-plugin) for Obsidan specific code guidelines.
-- A GitHub action is preconfigured to automatically lint every commit on all branches.
-
-## Funding URL
-
-You can include funding URLs where people who use your plugin can financially support it.
-
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
-
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
+### 账户文件 (Accounts)
+```yaml
+---
+type: account
+name: 账户名称
+account_kind: bank | credit | wallet | cash | investment | prepaid | other
+institution: 银行/机构名称
+currency: CNY
+opening_date: 2024-01-01
+opening_balance: 0
+icon: "📱"  # 可选，自定义图标
+---
 ```
 
-If you have multiple URLs, you can also do:
-
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
+### 交易文件 (Transactions)
+```yaml
+---
+type: txn
+uid: XXXXXXXXXX
+date: 2024-01-19
+time: "14:30:00"
+txn_type: 支出 | 收入 | 转账 | 还款
+category: 餐饮/外卖
+amount: 50.00
+refund: 0
+currency: CNY
+from: 账户名称
+to: 
+payee: "商家名称"
+address: 地址
+tags: []
+note: 备注
+---
 ```
 
-## API Documentation
+## ⚙️ 设置
 
-See https://docs.obsidian.md
+在插件设置中可以配置：
+- **Finance 文件夹路径**：存放财务数据的根目录
+- **Accounts 文件夹路径**：账户文件存放位置
+- **Transactions 文件夹路径**：交易文件存放位置
+
+默认目录结构：
+```
+Finance/
+├── Accounts/          # 账户文件
+├── Transactions/      # 交易文件
+│   └── 2024/
+│       └── 2024-01/
+│           └── 2024-01-19/
+│               └── XXXXXXXXXX.md
+├── Dashboards/        # 仪表板（可选）
+└── Templates/         # 模板文件（可选）
+```
+
+## 🚀 快速开始
+
+1. 安装插件
+2. 在设置中配置文件夹路径
+3. 创建你的第一个账户文件
+4. 点击工具栏的 "+" 按钮添加交易
+5. 在侧边栏或主视图中查看账户和交易
+
+## 📱 视图说明
+
+### 主视图
+- **交易标签页**：左侧显示资产汇总和日历，右侧显示交易列表
+- **账户标签页**：左侧显示账户列表，右侧显示选中账户的交易
+
+### 侧边栏
+- 显示所有账户的快速概览
+- 点击账户可跳转到主视图查看详情
+
+## 🔧 开发
+
+```bash
+# 安装依赖
+npm install
+
+# 开发模式（监听文件变化）
+npm run dev
+
+# 生产构建
+npm run build
+```
+
+## 📄 许可证
+
+MIT License
+
+## 🙏 致谢
+
+- [Obsidian](https://obsidian.md/) - 强大的知识管理工具
+- [Obsidian Sample Plugin](https://github.com/obsidianmd/obsidian-sample-plugin) - 插件开发模板
