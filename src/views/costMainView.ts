@@ -147,6 +147,14 @@ export class CostMainView extends ItemView {
             this.render();
         });
 
+        // 添加交易按钮
+        const addTxnBtn = tabBar.createDiv({ cls: "cost-tab-action" });
+        setIcon(addTxnBtn, "plus");
+        addTxnBtn.title = "添加交易";
+        addTxnBtn.addEventListener("click", () => {
+            this.createNewTransaction();
+        });
+
         // 刷新按钮
         const refreshBtn = tabBar.createDiv({ cls: "cost-tab-refresh" });
         setIcon(refreshBtn, "refresh-cw");
@@ -589,7 +597,9 @@ export class CostMainView extends ItemView {
                 const accountName = entry[0];
                 const balance = entry[1];
                 const changeEl = balanceChangesEl.createSpan({ cls: "cost-txn-balance-bubble" });
-                changeEl.setText(`${balance.before.toFixed(0)}→${balance.after.toFixed(0)}`);
+                changeEl.createSpan({ text: balance.before.toFixed(0) });
+                changeEl.createSpan({ cls: "cost-txn-balance-arrow", text: "→" });
+                changeEl.createSpan({ text: balance.after.toFixed(0) });
                 
                 // 根据账户类型和余额变化方向设置颜色
                 const account = this.findAccountByName(accountName);
@@ -810,7 +820,9 @@ export class CostMainView extends ItemView {
             if (balance) {
                 const balanceChangesEl = amountCol.createDiv({ cls: "cost-txn-balance-changes" });
                 const changeEl = balanceChangesEl.createSpan({ cls: "cost-txn-balance-bubble" });
-                changeEl.setText(`${balance.before.toFixed(0)}→${balance.after.toFixed(0)}`);
+                changeEl.createSpan({ text: balance.before.toFixed(0) });
+                changeEl.createSpan({ cls: "cost-txn-balance-arrow", text: "→" });
+                changeEl.createSpan({ text: balance.after.toFixed(0) });
                 
                 // 根据账户类型和余额变化方向设置颜色
                 const account = this.findAccountByName(forAccount);
@@ -1652,6 +1664,91 @@ export class CostMainView extends ItemView {
             
         } catch (error) {
             console.error("Failed to update transaction time:", error);
+        }
+    }
+
+    /**
+     * 创建新交易
+     */
+    private async createNewTransaction(): Promise<void> {
+        const settings = this.plugin.settings;
+        const now = new Date();
+        
+        // 生成唯一ID
+        const id = this.generateTransactionId();
+        
+        // 格式化日期和时间
+        const date = now.toISOString().split('T')[0];
+        const time = now.toTimeString().split(' ')[0];
+        
+        // 构建文件路径
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const folderPath = `${settings.transactionsPath}/${year}/${year}-${month}/${year}-${month}-${day}`;
+        const filePath = `${folderPath}/${id}.md`;
+        
+        // 构建frontmatter内容
+        const content = `---
+type: txn
+uid: ${id}
+date: ${date}
+time: ${time}
+txn_type: 支出
+category: 
+amount: 0
+refund: 0
+currency: CNY
+from: 
+to: 
+payee: ""
+address: 
+tags: []
+note: 
+---
+
+`;
+
+        // 确保文件夹存在并创建文件
+        try {
+            // 创建文件夹（如果不存在）
+            await this.ensureFolderExists(folderPath);
+            
+            // 创建文件
+            const file = await this.app.vault.create(filePath, content);
+            
+            // 刷新交易列表
+            await this.plugin.transactionService.scanTransactions();
+            await this.render();
+            
+            // 打开新创建的文件
+            const leaf = this.app.workspace.getLeaf(false);
+            await leaf.openFile(file);
+            
+        } catch (error) {
+            console.error("Failed to create transaction:", error);
+        }
+    }
+
+    /**
+     * 生成交易ID
+     */
+    private generateTransactionId(): string {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let result = '';
+        for (let i = 0; i < 16; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+    }
+
+    /**
+     * 确保文件夹存在
+     */
+    private async ensureFolderExists(folderPath: string): Promise<void> {
+        const folder = this.app.vault.getAbstractFileByPath(folderPath);
+        if (!folder) {
+            await this.app.vault.createFolder(folderPath);
         }
     }
 }
