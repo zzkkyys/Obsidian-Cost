@@ -492,6 +492,26 @@ Obsidian Cost Plugin Styles
 	font-size: 11px;
 }
 
+/* 可点击的账户气泡 */
+.cost-txn-account-clickable {
+	cursor: default;
+}
+
+/* 可编辑的账户（可点击更改） */
+.cost-txn-account-editable {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	padding: 1px 4px;
+	border-radius: 6px;
+	cursor: pointer;
+	transition: background-color 0.15s ease;
+}
+
+.cost-txn-account-editable:hover {
+	background-color: var(--background-modifier-hover);
+}
+
 /* 交易中的账户小图标 */
 .cost-txn-account-icon-small {
 	display: inline-flex;

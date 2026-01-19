@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
+import { ItemView, WorkspaceLeaf, setIcon, Menu } from "obsidian";
 import CostPlugin from "../main";
 import { AccountInfo } from "../types";
 import { TransactionInfo } from "../services/transactionService";
@@ -232,40 +232,60 @@ export class CostMainView extends ItemView {
         // 显示账户名（不含余额）
         const txnBalances = allRunningBalances.get(txn.path);
         if (txn.from || txn.to) {
-            const accountBubble = bottomRow.createSpan({ cls: "cost-txn-account-bubble" });
+            const accountBubble = bottomRow.createSpan({ cls: "cost-txn-account-bubble cost-txn-account-clickable" });
             
             if (txn.txnType === "转账" || txn.txnType === "还款") {
                 // 转账/还款：显示两个账户的 icon
                 const fromAccount = this.findAccountByName(txn.from);
                 const toAccount = this.findAccountByName(txn.to);
                 
-                const fromIconEl = accountBubble.createSpan({ cls: "cost-txn-account-icon-small" });
+                // From 账户（可点击更改）
+                const fromEl = accountBubble.createSpan({ cls: "cost-txn-account-editable" });
+                const fromIconEl = fromEl.createSpan({ cls: "cost-txn-account-icon-small" });
                 if (fromAccount?.icon) {
                     this.renderCustomIcon(fromIconEl, fromAccount.icon);
                 } else if (fromAccount) {
                     fromIconEl.setText(this.getAccountIcon(fromAccount.accountKind));
                 }
-                accountBubble.createSpan({ text: `${txn.from} → ` });
+                fromEl.createSpan({ text: txn.from });
+                fromEl.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    this.showAccountSelectionMenu(e, txn, "from");
+                });
                 
-                const toIconEl = accountBubble.createSpan({ cls: "cost-txn-account-icon-small" });
+                accountBubble.createSpan({ text: " → " });
+                
+                // To 账户（可点击更改）
+                const toEl = accountBubble.createSpan({ cls: "cost-txn-account-editable" });
+                const toIconEl = toEl.createSpan({ cls: "cost-txn-account-icon-small" });
                 if (toAccount?.icon) {
                     this.renderCustomIcon(toIconEl, toAccount.icon);
                 } else if (toAccount) {
                     toIconEl.setText(this.getAccountIcon(toAccount.accountKind));
                 }
-                accountBubble.createSpan({ text: txn.to });
+                toEl.createSpan({ text: txn.to });
+                toEl.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    this.showAccountSelectionMenu(e, txn, "to");
+                });
             } else {
-                // 单账户：显示一个 icon
+                // 单账户：显示一个 icon（可点击更改）
                 const accountName = txn.from || txn.to;
                 const account = this.findAccountByName(accountName);
+                const field = txn.from ? "from" : "to";
                 
-                const iconEl = accountBubble.createSpan({ cls: "cost-txn-account-icon-small" });
+                const accountEl = accountBubble.createSpan({ cls: "cost-txn-account-editable" });
+                const iconEl = accountEl.createSpan({ cls: "cost-txn-account-icon-small" });
                 if (account?.icon) {
                     this.renderCustomIcon(iconEl, account.icon);
                 } else if (account) {
                     iconEl.setText(this.getAccountIcon(account.accountKind));
                 }
-                accountBubble.createSpan({ text: accountName });
+                accountEl.createSpan({ text: accountName });
+                accountEl.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    this.showAccountSelectionMenu(e, txn, field);
+                });
             }
         }
         
@@ -418,42 +438,62 @@ export class CostMainView extends ItemView {
             bottomRow.createSpan({ cls: "cost-txn-note", text: txn.note });
         }
         
-        // 显示账户名（带图标，使用统一的气泡样式）
+        // 显示账户名（带图标，使用统一的气泡样式，可点击更改）
         if (txn.from || txn.to) {
-            const accountBubble = bottomRow.createSpan({ cls: "cost-txn-account-bubble" });
+            const accountBubble = bottomRow.createSpan({ cls: "cost-txn-account-bubble cost-txn-account-clickable" });
             
             if (txn.txnType === "转账" || txn.txnType === "还款") {
                 // 转账/还款：显示两个账户的 icon
                 const fromAccount = this.findAccountByName(txn.from);
                 const toAccount = this.findAccountByName(txn.to);
                 
-                const fromIconEl = accountBubble.createSpan({ cls: "cost-txn-account-icon-small" });
+                // From 账户（可点击更改）
+                const fromEl = accountBubble.createSpan({ cls: "cost-txn-account-editable" });
+                const fromIconEl = fromEl.createSpan({ cls: "cost-txn-account-icon-small" });
                 if (fromAccount?.icon) {
                     this.renderCustomIcon(fromIconEl, fromAccount.icon);
                 } else if (fromAccount) {
                     fromIconEl.setText(this.getAccountIcon(fromAccount.accountKind));
                 }
-                accountBubble.createSpan({ text: `${txn.from} → ` });
+                fromEl.createSpan({ text: txn.from });
+                fromEl.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    this.showAccountSelectionMenu(e, txn, "from");
+                });
                 
-                const toIconEl = accountBubble.createSpan({ cls: "cost-txn-account-icon-small" });
+                accountBubble.createSpan({ text: " → " });
+                
+                // To 账户（可点击更改）
+                const toEl = accountBubble.createSpan({ cls: "cost-txn-account-editable" });
+                const toIconEl = toEl.createSpan({ cls: "cost-txn-account-icon-small" });
                 if (toAccount?.icon) {
                     this.renderCustomIcon(toIconEl, toAccount.icon);
                 } else if (toAccount) {
                     toIconEl.setText(this.getAccountIcon(toAccount.accountKind));
                 }
-                accountBubble.createSpan({ text: txn.to });
+                toEl.createSpan({ text: txn.to });
+                toEl.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    this.showAccountSelectionMenu(e, txn, "to");
+                });
             } else {
-                // 单账户：显示一个 icon
+                // 单账户：显示一个 icon（可点击更改）
                 const accountName = txn.from || txn.to;
                 const account = this.findAccountByName(accountName);
+                const field = txn.from ? "from" : "to";
                 
-                const acctIconEl = accountBubble.createSpan({ cls: "cost-txn-account-icon-small" });
+                const accountEl = accountBubble.createSpan({ cls: "cost-txn-account-editable" });
+                const acctIconEl = accountEl.createSpan({ cls: "cost-txn-account-icon-small" });
                 if (account?.icon) {
                     this.renderCustomIcon(acctIconEl, account.icon);
                 } else if (account) {
                     acctIconEl.setText(this.getAccountIcon(account.accountKind));
                 }
-                accountBubble.createSpan({ text: accountName });
+                accountEl.createSpan({ text: accountName });
+                accountEl.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    this.showAccountSelectionMenu(e, txn, field);
+                });
             }
         }
         
@@ -1075,5 +1115,72 @@ export class CostMainView extends ItemView {
     private findAccountByName(accountName: string): AccountInfo | undefined {
         const accounts = this.plugin.accountService.getAccounts();
         return accounts.find(a => a.fileName === accountName || a.displayName === accountName);
+    }
+
+    /**
+     * 显示账户选择菜单
+     */
+    private showAccountSelectionMenu(event: MouseEvent, txn: TransactionInfo, field: "from" | "to"): void {
+        const menu = new Menu();
+        const accounts = this.plugin.accountService.getAccounts();
+        
+        // 按账户类型分组
+        const grouped = this.groupAccountsByKind(accounts);
+        
+        // 按优先级顺序添加菜单项
+        for (const kind of this.accountKindOrder) {
+            const groupAccounts = grouped.get(kind);
+            if (groupAccounts && groupAccounts.length > 0) {
+                const kindName = this.accountKindNames[kind] || kind;
+                
+                // 添加分组标题
+                menu.addItem((item) => {
+                    item.setTitle(`── ${kindName} ──`)
+                        .setDisabled(true);
+                });
+                
+                // 添加该分组下的账户
+                for (const account of groupAccounts) {
+                    const currentValue = field === "from" ? txn.from : txn.to;
+                    const isSelected = account.fileName === currentValue;
+                    
+                    menu.addItem((item) => {
+                        item.setTitle(`${isSelected ? "✓ " : "   "}${this.getAccountIcon(account.accountKind)} ${account.displayName}`)
+                            .onClick(async () => {
+                                await this.updateTransactionAccount(txn, field, account.fileName);
+                            });
+                    });
+                }
+            }
+        }
+        
+        menu.showAtMouseEvent(event);
+    }
+
+    /**
+     * 更新交易的账户
+     */
+    private async updateTransactionAccount(txn: TransactionInfo, field: "from" | "to", newAccountName: string): Promise<void> {
+        const file = this.app.vault.getAbstractFileByPath(txn.path);
+        if (!file) return;
+        
+        try {
+            // 使用 processFrontMatter 更新 frontmatter
+            await this.app.fileManager.processFrontMatter(file as any, (frontmatter) => {
+                frontmatter[field] = newAccountName;
+            });
+            
+            // 等待一小段时间让 metadata 缓存更新
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // 刷新交易缓存
+            await this.plugin.transactionService.scanTransactions();
+            
+            // 重新渲染视图
+            this.render();
+            
+        } catch (error) {
+            console.error("Failed to update transaction account:", error);
+        }
     }
 }
