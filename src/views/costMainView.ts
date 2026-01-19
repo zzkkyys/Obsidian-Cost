@@ -16,6 +16,10 @@ export class CostMainView extends ItemView {
     private currentTab: TabType = "transactions";
     private selectedAccount: AccountInfo | null = null;
     
+    // 日历视图状态
+    private calendarYear: number = new Date().getFullYear();
+    private calendarMonth: number = new Date().getMonth();  // 0-11
+    
     // 性能优化：缓存
     private iconCache: Map<string, string> = new Map();  // icon link -> resource path
     private accountNameCache: Map<string, AccountInfo> = new Map();  // account name -> account info
@@ -76,7 +80,7 @@ export class CostMainView extends ItemView {
 
         if (this.currentTab === "transactions") {
             await this.renderTransactionsTab(content);
-        } else {
+        } else if (this.currentTab === "accounts") {
             await this.renderAccountsTab(content);
         }
     }
@@ -156,13 +160,29 @@ export class CostMainView extends ItemView {
     }
 
     /**
-     * 渲染交易标签页
+     * 渲染交易标签页 - 两列布局
      */
     private async renderTransactionsTab(container: HTMLElement): Promise<void> {
         const transactions = this.plugin.transactionService.getTransactions();
+        const accounts = this.plugin.accountService.getAccounts();
 
+        // 两列布局
+        const layout = container.createDiv({ cls: "cost-txn-layout" });
+        
+        // 左侧栏：资产汇总 + 日历
+        const leftCol = layout.createDiv({ cls: "cost-txn-left-col" });
+        
+        // 资产汇总卡片
+        this.renderBalanceSummary(leftCol, accounts);
+        
+        // 迷你日历
+        this.renderMiniCalendar(leftCol);
+        
+        // 右侧栏：交易列表
+        const rightCol = layout.createDiv({ cls: "cost-txn-right-col" });
+        
         if (transactions.length === 0) {
-            container.createDiv({ cls: "cost-empty-message", text: "暂无交易记录" });
+            rightCol.createDiv({ cls: "cost-empty-message", text: "暂无交易记录" });
             return;
         }
 
@@ -174,8 +194,203 @@ export class CostMainView extends ItemView {
         const grouped = this.plugin.transactionService.getTransactionsGroupedByDate();
 
         for (const [date, txns] of grouped) {
-            this.renderDateGroupWithBalances(container, date, txns, allRunningBalances);
+            this.renderDateGroupWithBalances(rightCol, date, txns, allRunningBalances);
         }
+    }
+
+    /**
+     * 渲染迷你日历（用于交易页左侧栏）
+     */
+    private renderMiniCalendar(container: HTMLElement): void {
+        const calendarWidget = container.createDiv({ cls: "cost-mini-calendar" });
+        
+        // 日历头部
+        const header = calendarWidget.createDiv({ cls: "cost-mini-calendar-header" });
+        
+        // 上个月按钮
+        const prevBtn = header.createDiv({ cls: "cost-mini-calendar-nav" });
+        setIcon(prevBtn, "chevron-left");
+        prevBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            this.calendarMonth--;
+            if (this.calendarMonth < 0) {
+                this.calendarMonth = 11;
+                this.calendarYear--;
+            }
+            this.render();
+        });
+        
+        // 当前年月
+        const titleEl = header.createDiv({ cls: "cost-mini-calendar-title" });
+        titleEl.setText(`${this.calendarYear}年${this.calendarMonth + 1}月`);
+        
+        // 下个月按钮
+        const nextBtn = header.createDiv({ cls: "cost-mini-calendar-nav" });
+        setIcon(nextBtn, "chevron-right");
+        nextBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            this.calendarMonth++;
+            if (this.calendarMonth > 11) {
+                this.calendarMonth = 0;
+                this.calendarYear++;
+            }
+            this.render();
+        });
+        
+        // 月度统计
+        const monthStats = this.calculateMonthStats(this.calendarYear, this.calendarMonth);
+        const statsEl = calendarWidget.createDiv({ cls: "cost-mini-calendar-stats" });
+        statsEl.createSpan({ cls: "cost-mini-stat cost-income", text: `+${this.formatCompact(monthStats.income)}` });
+        statsEl.createSpan({ cls: "cost-mini-stat cost-expense", text: `-${this.formatCompact(monthStats.expense)}` });
+        statsEl.createSpan({ cls: "cost-mini-stat", text: `${monthStats.count}笔` });
+        
+        // 星期标题
+        const weekHeader = calendarWidget.createDiv({ cls: "cost-mini-calendar-weekdays" });
+        const weekdays = ["日", "一", "二", "三", "四", "五", "六"];
+        for (const day of weekdays) {
+            weekHeader.createDiv({ cls: "cost-mini-weekday", text: day });
+        }
+        
+        // 日历网格
+        const grid = calendarWidget.createDiv({ cls: "cost-mini-calendar-grid" });
+        this.renderMiniCalendarGrid(grid, this.calendarYear, this.calendarMonth);
+    }
+
+    /**
+     * 渲染迷你日历网格
+     */
+    private renderMiniCalendarGrid(container: HTMLElement, year: number, month: number): void {
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+        
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const dailyStats = this.getDailyStats(year, month);
+        
+        // 填充上月的空白日期
+        const startWeekday = firstDay.getDay();
+        for (let i = 0; i < startWeekday; i++) {
+            container.createDiv({ cls: "cost-mini-day cost-mini-day-empty" });
+        }
+        
+        // 渲染当月日期
+        for (let day = 1; day <= lastDay.getDate(); day++) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            const stats = dailyStats.get(dateStr);
+            const isToday = dateStr === todayStr;
+            
+            const dayEl = container.createDiv({ 
+                cls: `cost-mini-day ${isToday ? "cost-mini-day-today" : ""} ${stats ? "cost-mini-day-has-data" : ""}` 
+            });
+            
+            // 日期数字
+            dayEl.createDiv({ cls: "cost-mini-day-num", text: String(day) });
+            
+            // 有交易的日期显示统计
+            if (stats) {
+                const statsEl = dayEl.createDiv({ cls: "cost-mini-day-stats" });
+                
+                // 始终显示收入和支出
+                statsEl.createDiv({ cls: "cost-mini-day-income", text: `+${stats.income > 0 ? this.formatCompact(stats.income) : "0"}` });
+                statsEl.createDiv({ cls: "cost-mini-day-expense", text: `-${stats.expense > 0 ? this.formatCompact(stats.expense) : "0"}` });
+                
+                // 交易笔数
+                statsEl.createDiv({ cls: "cost-mini-day-count", text: `${stats.count}笔` });
+                
+                // 点击滚动到对应日期
+                dayEl.addEventListener("click", () => {
+                    this.scrollToDate(dateStr);
+                });
+            }
+        }
+        
+        // 填充下月的空白日期
+        const endWeekday = lastDay.getDay();
+        for (let i = endWeekday + 1; i < 7; i++) {
+            container.createDiv({ cls: "cost-mini-day cost-mini-day-empty" });
+        }
+    }
+
+    /**
+     * 滚动到指定日期
+     */
+    private scrollToDate(dateStr: string): void {
+        const dateHeaders = this.contentEl.querySelectorAll(".cost-date-text");
+        for (const header of Array.from(dateHeaders)) {
+            if (header.textContent === dateStr) {
+                header.scrollIntoView({ behavior: "smooth", block: "start" });
+                // 高亮效果
+                const parent = header.closest(".cost-date-group");
+                if (parent) {
+                    parent.addClass("cost-date-group-highlight");
+                    setTimeout(() => parent.removeClass("cost-date-group-highlight"), 1500);
+                }
+                break;
+            }
+        }
+    }
+
+    /**
+     * 计算月度统计
+     */
+    private calculateMonthStats(year: number, month: number): { income: number; expense: number; count: number } {
+        const transactions = this.plugin.transactionService.getTransactions();
+        const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
+        
+        let income = 0;
+        let expense = 0;
+        let count = 0;
+        
+        for (const txn of transactions) {
+            if (txn.date.startsWith(monthStr)) {
+                count++;
+                if (txn.txnType === "收入") {
+                    income += txn.amount;
+                } else if (txn.txnType === "支出") {
+                    expense += txn.amount - txn.refund;
+                }
+            }
+        }
+        
+        return { income, expense, count };
+    }
+
+    /**
+     * 获取每日统计
+     */
+    private getDailyStats(year: number, month: number): Map<string, { income: number; expense: number; count: number }> {
+        const transactions = this.plugin.transactionService.getTransactions();
+        const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
+        const stats = new Map<string, { income: number; expense: number; count: number }>();
+        
+        for (const txn of transactions) {
+            if (txn.date.startsWith(monthStr)) {
+                if (!stats.has(txn.date)) {
+                    stats.set(txn.date, { income: 0, expense: 0, count: 0 });
+                }
+                const dayStat = stats.get(txn.date)!;
+                dayStat.count++;
+                if (txn.txnType === "收入") {
+                    dayStat.income += txn.amount;
+                } else if (txn.txnType === "支出") {
+                    dayStat.expense += txn.amount - txn.refund;
+                }
+            }
+        }
+        
+        return stats;
+    }
+
+    /**
+     * 格式化紧凑数字（如 1.2k）
+     */
+    private formatCompact(num: number): string {
+        if (num >= 10000) {
+            return (num / 10000).toFixed(1) + "万";
+        } else if (num >= 1000) {
+            return (num / 1000).toFixed(1) + "k";
+        }
+        return num.toFixed(0);
     }
 
     /**
