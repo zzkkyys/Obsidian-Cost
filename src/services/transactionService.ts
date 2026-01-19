@@ -37,6 +37,8 @@ export interface TransactionInfo {
     memo: string;
     /** 备注 */
     note: string;
+    /** 参与人 */
+    persons: string[];
 }
 
 /**
@@ -121,7 +123,7 @@ export class TransactionService {
         }
 
         const fm = cache.frontmatter as Partial<TransactionFrontmatter>;
-        
+
         // 检查是否为交易类型
         if (fm.type !== "txn") {
             return null;
@@ -144,6 +146,7 @@ export class TransactionService {
             address: (fm as any).address || "",
             memo: fm.memo || "",
             note: (fm as any).note || "",
+            persons: fm.persons || [],
         };
     }
 
@@ -158,7 +161,7 @@ export class TransactionService {
      * 获取指定账户的所有交易
      */
     getTransactionsByAccount(accountFileName: string): TransactionInfo[] {
-        return this.transactionCache.filter(txn => 
+        return this.transactionCache.filter(txn =>
             txn.from.includes(accountFileName) || txn.to.includes(accountFileName)
         );
     }
@@ -169,11 +172,11 @@ export class TransactionService {
      */
     calculateBalanceChange(accountFileName: string): number {
         let change = 0;
-        
+
         for (const txn of this.transactionCache) {
             const isFrom = txn.from.includes(accountFileName);
             const isTo = txn.to.includes(accountFileName);
-            
+
             if (txn.txnType === "收入" && isTo) {
                 // 收入到此账户
                 change += txn.amount;
@@ -199,7 +202,7 @@ export class TransactionService {
                 }
             }
         }
-        
+
         return change;
     }
 
@@ -208,7 +211,7 @@ export class TransactionService {
      */
     getTransactionsGroupedByDate(): Map<string, TransactionInfo[]> {
         const grouped = new Map<string, TransactionInfo[]>();
-        
+
         for (const txn of this.transactionCache) {
             const date = txn.date || "未知日期";
             if (!grouped.has(date)) {
@@ -216,7 +219,7 @@ export class TransactionService {
             }
             grouped.get(date)!.push(txn);
         }
-        
+
         return grouped;
     }
 
@@ -231,21 +234,21 @@ export class TransactionService {
         const transactions = this.getTransactionsByAccount(accountFileName)
             .slice()
             .sort((a, b) => a.date.localeCompare(b.date));
-        
+
         const balanceMap = new Map<string, { before: number; after: number }>();
         let currentBalance = openingBalance;
-        
+
         for (const txn of transactions) {
             const change = this.getBalanceChangeForTransaction(txn, accountFileName);
             const before = currentBalance;
             const after = currentBalance + change;
-            
+
             // 使用交易的唯一标识（路径）作为 key
             balanceMap.set(txn.path, { before, after });
-            
+
             currentBalance = after;
         }
-        
+
         return balanceMap;
     }
 
@@ -255,7 +258,7 @@ export class TransactionService {
     getBalanceChangeForTransaction(txn: TransactionInfo, accountFileName: string): number {
         const isFrom = txn.from.includes(accountFileName);
         const isTo = txn.to.includes(accountFileName);
-        
+
         if (txn.txnType === "收入") {
             if (isTo || isFrom) {
                 return txn.amount;
@@ -289,7 +292,7 @@ export class TransactionService {
                 return txn.amount;
             }
         }
-        
+
         return 0;
     }
 
@@ -309,23 +312,23 @@ export class TransactionService {
                 if (dateCompare !== 0) return dateCompare;
                 return (a.time || "").localeCompare(b.time || "");
             });
-        
+
         // 账户当前余额
         const currentBalances = new Map<string, number>();
         for (const [account, balance] of accountOpeningBalances) {
             currentBalances.set(account, balance);
         }
-        
+
         // 结果：交易路径 -> 账户余额变化映射
         const result = new Map<string, Map<string, { before: number; after: number }>>();
-        
+
         for (const txn of sortedTransactions) {
             const txnBalances = new Map<string, { before: number; after: number }>();
-            
+
             // 获取涉及的账户
             const fromAccount = txn.from?.replace(/\[\[|\]\]/g, "") || "";
             const toAccount = txn.to?.replace(/\[\[|\]\]/g, "") || "";
-            
+
             // 计算 from 账户的变化
             if (fromAccount && accountOpeningBalances.has(fromAccount)) {
                 const change = this.getBalanceChangeForTransaction(txn, fromAccount);
@@ -334,7 +337,7 @@ export class TransactionService {
                 txnBalances.set(fromAccount, { before, after });
                 currentBalances.set(fromAccount, after);
             }
-            
+
             // 计算 to 账户的变化（如果与 from 不同）
             if (toAccount && toAccount !== fromAccount && accountOpeningBalances.has(toAccount)) {
                 const change = this.getBalanceChangeForTransaction(txn, toAccount);
@@ -343,10 +346,10 @@ export class TransactionService {
                 txnBalances.set(toAccount, { before, after });
                 currentBalances.set(toAccount, after);
             }
-            
+
             result.set(txn.path, txnBalances);
         }
-        
+
         return result;
     }
 }

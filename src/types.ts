@@ -41,6 +41,8 @@ export interface TransactionFrontmatter {
     /** 备注 */
     note?: string;
     tags?: string[];
+    /** 参与人 */
+    persons?: string[];
 }
 
 /**

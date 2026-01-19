@@ -15,16 +15,16 @@ export class CostMainView extends ItemView {
     private plugin: CostPlugin;
     private currentTab: TabType = "transactions";
     private selectedAccount: AccountInfo | null = null;
-    
+
     // 日历视图状态
     private calendarYear: number = new Date().getFullYear();
     private calendarMonth: number = new Date().getMonth();  // 0-11
-    
+
     // 分类统计时间范围状态
     private statsRangeType: "month" | "year" | "all" = "month";  // 当月/当年/全部
     private statsYear: number = new Date().getFullYear();
     private statsMonth: number = new Date().getMonth();  // 0-11
-    
+
     // 性能优化：缓存
     private iconCache: Map<string, string> = new Map();  // icon link -> resource path
     private accountNameCache: Map<string, AccountInfo> = new Map();  // account name -> account info
@@ -81,7 +81,7 @@ export class CostMainView extends ItemView {
      */
     async render(): Promise<void> {
         this.contentEl.empty();
-        
+
         // 刷新缓存
         this.refreshCacheIfNeeded();
 
@@ -139,8 +139,8 @@ export class CostMainView extends ItemView {
         const tabBar = this.contentEl.createDiv({ cls: "cost-tab-bar" });
 
         // 交易标签
-        const txnTab = tabBar.createDiv({ 
-            cls: `cost-tab ${this.currentTab === "transactions" ? "is-active" : ""}` 
+        const txnTab = tabBar.createDiv({
+            cls: `cost-tab ${this.currentTab === "transactions" ? "is-active" : ""}`
         });
         txnTab.createSpan({ text: "交易" });
         txnTab.addEventListener("click", () => {
@@ -150,8 +150,8 @@ export class CostMainView extends ItemView {
         });
 
         // 账户标签
-        const accTab = tabBar.createDiv({ 
-            cls: `cost-tab ${this.currentTab === "accounts" ? "is-active" : ""}` 
+        const accTab = tabBar.createDiv({
+            cls: `cost-tab ${this.currentTab === "accounts" ? "is-active" : ""}`
         });
         accTab.createSpan({ text: "账户" });
         accTab.addEventListener("click", () => {
@@ -189,22 +189,22 @@ export class CostMainView extends ItemView {
 
         // 两列布局
         const layout = container.createDiv({ cls: "cost-txn-layout" });
-        
+
         // 左侧栏：资产汇总 + 日历 + 分类统计
         const leftCol = layout.createDiv({ cls: "cost-txn-left-col" });
-        
+
         // 资产汇总卡片
         this.renderBalanceSummary(leftCol, accounts);
-        
+
         // 迷你日历
         this.renderMiniCalendar(leftCol);
-        
+
         // 分类消费统计
         this.renderCategoryStats(leftCol, transactions);
-        
+
         // 右侧栏：交易列表
         const rightCol = layout.createDiv({ cls: "cost-txn-right-col" });
-        
+
         if (transactions.length === 0) {
             rightCol.createDiv({ cls: "cost-empty-message", text: "暂无交易记录" });
             return;
@@ -227,10 +227,10 @@ export class CostMainView extends ItemView {
      */
     private renderMiniCalendar(container: HTMLElement): void {
         const calendarWidget = container.createDiv({ cls: "cost-mini-calendar" });
-        
+
         // 日历头部
         const header = calendarWidget.createDiv({ cls: "cost-mini-calendar-header" });
-        
+
         // 上个月按钮
         const prevBtn = header.createDiv({ cls: "cost-mini-calendar-nav" });
         setIcon(prevBtn, "chevron-left");
@@ -243,11 +243,11 @@ export class CostMainView extends ItemView {
             }
             this.render();
         });
-        
+
         // 当前年月
         const titleEl = header.createDiv({ cls: "cost-mini-calendar-title" });
         titleEl.setText(`${this.calendarYear}年${this.calendarMonth + 1}月`);
-        
+
         // 下个月按钮
         const nextBtn = header.createDiv({ cls: "cost-mini-calendar-nav" });
         setIcon(nextBtn, "chevron-right");
@@ -260,21 +260,21 @@ export class CostMainView extends ItemView {
             }
             this.render();
         });
-        
+
         // 月度统计
         const monthStats = this.calculateMonthStats(this.calendarYear, this.calendarMonth);
         const statsEl = calendarWidget.createDiv({ cls: "cost-mini-calendar-stats" });
         statsEl.createSpan({ cls: "cost-mini-stat cost-income", text: `+${this.formatCompact(monthStats.income)}` });
         statsEl.createSpan({ cls: "cost-mini-stat cost-expense", text: `-${this.formatCompact(monthStats.expense)}` });
         statsEl.createSpan({ cls: "cost-mini-stat", text: `${monthStats.count}笔` });
-        
+
         // 星期标题
         const weekHeader = calendarWidget.createDiv({ cls: "cost-mini-calendar-weekdays" });
         const weekdays = ["日", "一", "二", "三", "四", "五", "六"];
         for (const day of weekdays) {
             weekHeader.createDiv({ cls: "cost-mini-weekday", text: day });
         }
-        
+
         // 日历网格
         const grid = calendarWidget.createDiv({ cls: "cost-mini-calendar-grid" });
         this.renderMiniCalendarGrid(grid, this.calendarYear, this.calendarMonth);
@@ -286,48 +286,48 @@ export class CostMainView extends ItemView {
     private renderMiniCalendarGrid(container: HTMLElement, year: number, month: number): void {
         const today = new Date();
         const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-        
+
         const firstDay = new Date(year, month, 1);
         const lastDay = new Date(year, month + 1, 0);
         const dailyStats = this.getDailyStats(year, month);
-        
+
         // 填充上月的空白日期
         const startWeekday = firstDay.getDay();
         for (let i = 0; i < startWeekday; i++) {
             container.createDiv({ cls: "cost-mini-day cost-mini-day-empty" });
         }
-        
+
         // 渲染当月日期
         for (let day = 1; day <= lastDay.getDate(); day++) {
             const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
             const stats = dailyStats.get(dateStr);
             const isToday = dateStr === todayStr;
-            
-            const dayEl = container.createDiv({ 
-                cls: `cost-mini-day ${isToday ? "cost-mini-day-today" : ""} ${stats ? "cost-mini-day-has-data" : ""}` 
+
+            const dayEl = container.createDiv({
+                cls: `cost-mini-day ${isToday ? "cost-mini-day-today" : ""} ${stats ? "cost-mini-day-has-data" : ""}`
             });
-            
+
             // 日期数字
             dayEl.createDiv({ cls: "cost-mini-day-num", text: String(day) });
-            
+
             // 有交易的日期显示统计
             if (stats) {
                 const statsEl = dayEl.createDiv({ cls: "cost-mini-day-stats" });
-                
+
                 // 始终显示收入和支出
                 statsEl.createDiv({ cls: "cost-mini-day-income", text: `+${stats.income > 0 ? this.formatCompact(stats.income) : "0"}` });
                 statsEl.createDiv({ cls: "cost-mini-day-expense", text: `-${stats.expense > 0 ? this.formatCompact(stats.expense) : "0"}` });
-                
+
                 // 交易笔数
                 statsEl.createDiv({ cls: "cost-mini-day-count", text: `${stats.count}笔` });
-                
+
                 // 点击滚动到对应日期
                 dayEl.addEventListener("click", () => {
                     this.scrollToDate(dateStr);
                 });
             }
         }
-        
+
         // 填充下月的空白日期
         const endWeekday = lastDay.getDay();
         for (let i = endWeekday + 1; i < 7; i++) {
@@ -360,11 +360,11 @@ export class CostMainView extends ItemView {
     private calculateMonthStats(year: number, month: number): { income: number; expense: number; count: number } {
         const transactions = this.plugin.transactionService.getTransactions();
         const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
-        
+
         let income = 0;
         let expense = 0;
         let count = 0;
-        
+
         for (const txn of transactions) {
             if (txn.date.startsWith(monthStr)) {
                 count++;
@@ -375,7 +375,7 @@ export class CostMainView extends ItemView {
                 }
             }
         }
-        
+
         return { income, expense, count };
     }
 
@@ -386,7 +386,7 @@ export class CostMainView extends ItemView {
         const transactions = this.plugin.transactionService.getTransactions();
         const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
         const stats = new Map<string, { income: number; expense: number; count: number }>();
-        
+
         for (const txn of transactions) {
             if (txn.date.startsWith(monthStr)) {
                 if (!stats.has(txn.date)) {
@@ -401,7 +401,7 @@ export class CostMainView extends ItemView {
                 }
             }
         }
-        
+
         return stats;
     }
 
@@ -422,50 +422,50 @@ export class CostMainView extends ItemView {
      */
     private renderCategoryStats(container: HTMLElement, transactions: TransactionInfo[]): void {
         const widget = container.createDiv({ cls: "cost-category-stats" });
-        
+
         // 标题行：标题 + 时间范围选择器
         const header = widget.createDiv({ cls: "cost-category-stats-header" });
         header.createSpan({ cls: "cost-category-stats-title", text: "分类统计" });
-        
+
         // 时间范围选择器
         const rangeSelector = header.createDiv({ cls: "cost-stats-range-selector" });
         this.renderStatsRangeSelector(rangeSelector);
-        
+
         // 根据时间范围筛选交易
         const filteredTransactions = this.filterTransactionsByRange(transactions);
-        
+
         // 只统计支出
         const expenses = filteredTransactions.filter(t => t.txnType === "支出");
-        
+
         if (expenses.length === 0) {
             widget.createDiv({ cls: "cost-category-stats-empty", text: "该时间段暂无支出记录" });
             return;
         }
-        
+
         // 按分类汇总
         const categoryMap = new Map<string, number>();
         let totalExpense = 0;
-        
+
         for (const txn of expenses) {
             const category = txn.category?.split("/")[0] || "未分类";
             const amount = txn.amount - txn.refund;
             categoryMap.set(category, (categoryMap.get(category) || 0) + amount);
             totalExpense += amount;
         }
-        
+
         // 排序（按金额降序）
         const sorted = Array.from(categoryMap.entries()).sort((a, b) => b[1] - a[1]);
-        
+
         // 颜色数组
         const colors: string[] = [
-            "#4CAF50", "#2196F3", "#FF9800", "#E91E63", 
+            "#4CAF50", "#2196F3", "#FF9800", "#E91E63",
             "#9C27B0", "#00BCD4", "#FF5722", "#795548",
             "#607D8B", "#3F51B5"
         ];
-        
+
         // 主体内容：饼图（带折线标签）
         const contentEl = widget.createDiv({ cls: "cost-category-content" });
-        
+
         // 饼图容器（包含SVG饼图和折线标签）
         const chartEl = contentEl.createDiv({ cls: "cost-category-chart" });
         this.renderPieChart(chartEl, sorted, colors, totalExpense);
@@ -484,7 +484,7 @@ export class CostMainView extends ItemView {
         } else {
             rangeText = "全部";
         }
-        
+
         const rangeBtn = container.createDiv({ cls: "cost-stats-range-btn" });
         rangeBtn.setText(rangeText);
         rangeBtn.addEventListener("click", (e) => {
@@ -498,17 +498,17 @@ export class CostMainView extends ItemView {
      */
     private showStatsRangeMenu(e: MouseEvent): void {
         const menu = new Menu();
-        
+
         const now = new Date();
         const currentYear = now.getFullYear();
         const currentMonth = now.getMonth();
-        
+
         // 当月
         menu.addItem(item => {
             item.setTitle(`本月 (${currentYear}年${currentMonth + 1}月)`);
-            item.setIcon(this.statsRangeType === "month" && 
-                        this.statsYear === currentYear && 
-                        this.statsMonth === currentMonth ? "check" : "calendar");
+            item.setIcon(this.statsRangeType === "month" &&
+                this.statsYear === currentYear &&
+                this.statsMonth === currentMonth ? "check" : "calendar");
             item.onClick(() => {
                 this.statsRangeType = "month";
                 this.statsYear = currentYear;
@@ -516,15 +516,15 @@ export class CostMainView extends ItemView {
                 this.render();
             });
         });
-        
+
         // 上月
         const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
         const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
         menu.addItem(item => {
             item.setTitle(`上月 (${lastMonthYear}年${lastMonth + 1}月)`);
-            item.setIcon(this.statsRangeType === "month" && 
-                        this.statsYear === lastMonthYear && 
-                        this.statsMonth === lastMonth ? "check" : "calendar");
+            item.setIcon(this.statsRangeType === "month" &&
+                this.statsYear === lastMonthYear &&
+                this.statsMonth === lastMonth ? "check" : "calendar");
             item.onClick(() => {
                 this.statsRangeType = "month";
                 this.statsYear = lastMonthYear;
@@ -532,9 +532,9 @@ export class CostMainView extends ItemView {
                 this.render();
             });
         });
-        
+
         menu.addSeparator();
-        
+
         // 今年
         menu.addItem(item => {
             item.setTitle(`今年 (${currentYear}年)`);
@@ -545,7 +545,7 @@ export class CostMainView extends ItemView {
                 this.render();
             });
         });
-        
+
         // 去年
         menu.addItem(item => {
             item.setTitle(`去年 (${currentYear - 1}年)`);
@@ -556,9 +556,9 @@ export class CostMainView extends ItemView {
                 this.render();
             });
         });
-        
+
         menu.addSeparator();
-        
+
         // 全部
         menu.addItem(item => {
             item.setTitle("全部时间");
@@ -568,7 +568,7 @@ export class CostMainView extends ItemView {
                 this.render();
             });
         });
-        
+
         menu.showAtMouseEvent(e);
     }
 
@@ -579,20 +579,20 @@ export class CostMainView extends ItemView {
         if (this.statsRangeType === "all") {
             return transactions;
         }
-        
+
         return transactions.filter(txn => {
             if (!txn.date) return false;
-            
+
             const [yearStr, monthStr] = txn.date.split("-");
             const txnYear = parseInt(yearStr || "0", 10);
             const txnMonth = parseInt(monthStr || "0", 10) - 1;  // 转为 0-11
-            
+
             if (this.statsRangeType === "year") {
                 return txnYear === this.statsYear;
             } else if (this.statsRangeType === "month") {
                 return txnYear === this.statsYear && txnMonth === this.statsMonth;
             }
-            
+
             return true;
         });
     }
@@ -601,9 +601,9 @@ export class CostMainView extends ItemView {
      * 渲染SVG饼图（带折线标签）
      */
     private renderPieChart(
-        container: HTMLElement, 
-        data: [string, number][], 
-        colors: string[], 
+        container: HTMLElement,
+        data: [string, number][],
+        colors: string[],
         total: number
     ): void {
         // viewBox缩小减少空白
@@ -613,13 +613,13 @@ export class CostMainView extends ItemView {
         const innerRadius = 58; // 环形图
         const labelRadius = 93; // 折线起点（紧贴饼图边缘）
         const labelOuterRadius = 108; // 折线拐点（更短）
-        
+
         const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         svg.setAttribute("viewBox", `0 0 ${size} ${size}`);
         svg.setAttribute("class", "cost-pie-chart");
-        
+
         let currentAngle = -90; // 从顶部开始
-        
+
         // 限制最多显示6个分类，其余归入"其他"
         const displayData = data.slice(0, 6);
         let otherTotal = 0;
@@ -630,10 +630,10 @@ export class CostMainView extends ItemView {
         if (otherTotal > 0) {
             displayData.push(["其他", otherTotal]);
         }
-        
+
         // 收集标签位置信息用于避免重叠
         const labels: { midAngle: number; percent: number; category: string; color: string; value: number }[] = [];
-        
+
         for (let i = 0; i < displayData.length; i++) {
             const entry = displayData[i];
             if (!entry) continue;
@@ -642,7 +642,7 @@ export class CostMainView extends ItemView {
             const percent = total > 0 ? value / total : 0;
             const angle = percent * 360;
             const color = colors[i % colors.length] || "#607D8B";
-            
+
             if (angle > 0) {
                 // 绘制扇区
                 const path = this.createArcPath(center, center, radius, innerRadius, currentAngle, currentAngle + angle);
@@ -650,39 +650,39 @@ export class CostMainView extends ItemView {
                 pathEl.setAttribute("d", path);
                 pathEl.setAttribute("fill", color);
                 svg.appendChild(pathEl);
-                
+
                 const midAngle = currentAngle + angle / 2;
                 labels.push({ midAngle, percent, category, color, value });
-                
+
                 currentAngle += angle;
             }
         }
-        
+
         // 绘制折线和标签
         const toRad = (deg: number) => (deg * Math.PI) / 180;
-        
+
         for (const label of labels) {
             const percentValue = label.percent * 100;
             // 只显示百分比>=3%的标签
             if (percentValue < 3) continue;
-            
+
             const midAngle = label.midAngle;
             const radMid = toRad(midAngle);
-            
+
             // 扇区边缘点（折线起点）
             const startX = center + labelRadius * Math.cos(radMid);
             const startY = center + labelRadius * Math.sin(radMid);
-            
+
             // 折线拐点
             const midX = center + labelOuterRadius * Math.cos(radMid);
             const midY = center + labelOuterRadius * Math.sin(radMid);
-            
+
             // 水平延伸的终点
             const isRight = midAngle > -90 && midAngle < 90;
             const horizontalLength = 8;
             const endX = isRight ? midX + horizontalLength : midX - horizontalLength;
             const endY = midY;
-            
+
             // 绘制折线
             const line = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
             line.setAttribute("points", `${startX},${startY} ${midX},${midY} ${endX},${endY}`);
@@ -690,12 +690,12 @@ export class CostMainView extends ItemView {
             line.setAttribute("stroke", label.color);
             line.setAttribute("stroke-width", "1.5");
             svg.appendChild(line);
-            
+
             // 在扇区中显示百分比
             const percentRadius = (radius + innerRadius) / 2;
             const percentX = center + percentRadius * Math.cos(radMid);
             const percentY = center + percentRadius * Math.sin(radMid);
-            
+
             // 百分比只在足够大的扇区显示
             if (percentValue >= 8) {
                 const percentText = document.createElementNS("http://www.w3.org/2000/svg", "text");
@@ -706,7 +706,7 @@ export class CostMainView extends ItemView {
                 percentText.textContent = `${percentValue.toFixed(0)}%`;
                 svg.appendChild(percentText);
             }
-            
+
             // 分类名标签
             const labelText = document.createElementNS("http://www.w3.org/2000/svg", "text");
             labelText.setAttribute("x", String(endX + (isRight ? 4 : -4)));
@@ -716,10 +716,10 @@ export class CostMainView extends ItemView {
             labelText.textContent = label.category;
             svg.appendChild(labelText);
         }
-        
+
         // 中心文字：总支出
         const textGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        
+
         const labelText = document.createElementNS("http://www.w3.org/2000/svg", "text");
         labelText.setAttribute("x", String(center));
         labelText.setAttribute("y", String(center - 6));
@@ -727,7 +727,7 @@ export class CostMainView extends ItemView {
         labelText.setAttribute("class", "cost-pie-label");
         labelText.textContent = "总支出";
         textGroup.appendChild(labelText);
-        
+
         const valueText = document.createElementNS("http://www.w3.org/2000/svg", "text");
         valueText.setAttribute("x", String(center));
         valueText.setAttribute("y", String(center + 14));
@@ -735,7 +735,7 @@ export class CostMainView extends ItemView {
         valueText.setAttribute("class", "cost-pie-value");
         valueText.textContent = `¥${this.formatCompact(total)}`;
         textGroup.appendChild(valueText);
-        
+
         svg.appendChild(textGroup);
         container.appendChild(svg);
     }
@@ -744,12 +744,12 @@ export class CostMainView extends ItemView {
      * 创建圆弧路径（用于饼图）
      */
     private createArcPath(
-        cx: number, cy: number, 
+        cx: number, cy: number,
         outerRadius: number, innerRadius: number,
         startAngle: number, endAngle: number
     ): string {
         const toRad = (deg: number) => (deg * Math.PI) / 180;
-        
+
         const startOuter = {
             x: cx + outerRadius * Math.cos(toRad(startAngle)),
             y: cy + outerRadius * Math.sin(toRad(startAngle))
@@ -766,9 +766,9 @@ export class CostMainView extends ItemView {
             x: cx + innerRadius * Math.cos(toRad(startAngle)),
             y: cy + innerRadius * Math.sin(toRad(startAngle))
         };
-        
+
         const largeArc = (endAngle - startAngle) > 180 ? 1 : 0;
-        
+
         return [
             `M ${startOuter.x} ${startOuter.y}`,
             `A ${outerRadius} ${outerRadius} 0 ${largeArc} 1 ${endOuter.x} ${endOuter.y}`,
@@ -794,8 +794,8 @@ export class CostMainView extends ItemView {
      * 渲染日期分组（带所有账户余额变化）
      */
     private renderDateGroupWithBalances(
-        container: HTMLElement, 
-        date: string, 
+        container: HTMLElement,
+        date: string,
         transactions: TransactionInfo[],
         allRunningBalances: Map<string, Map<string, { before: number; after: number }>>
     ): void {
@@ -804,7 +804,7 @@ export class CostMainView extends ItemView {
         // 日期标题
         const header = group.createDiv({ cls: "cost-date-header" });
         header.createSpan({ cls: "cost-date-text", text: date });
-        
+
         // 计算当日收支
         const income = transactions
             .filter(t => t.txnType === "收入")
@@ -812,7 +812,7 @@ export class CostMainView extends ItemView {
         const expense = transactions
             .filter(t => t.txnType === "支出")
             .reduce((sum, t) => sum + (t.amount - t.refund), 0);
-        
+
         const summaryEl = header.createDiv({ cls: "cost-date-summary" });
         if (income > 0) {
             summaryEl.createSpan({ cls: "cost-income", text: `+${income.toFixed(2)}` });
@@ -832,7 +832,7 @@ export class CostMainView extends ItemView {
      * 渲染单个交易项（带所有账户余额变化）
      */
     private renderTransactionItemWithBalances(
-        container: HTMLElement, 
+        container: HTMLElement,
         txn: TransactionInfo,
         allRunningBalances: Map<string, Map<string, { before: number; after: number }>>
     ): void {
@@ -844,15 +844,15 @@ export class CostMainView extends ItemView {
 
         // 交易信息
         const infoEl = item.createDiv({ cls: "cost-txn-info" });
-        
+
         const topRow = infoEl.createDiv({ cls: "cost-txn-top-row" });
         topRow.createSpan({ cls: "cost-txn-category", text: txn.category || "未分类" });
-        
+
         // 显示商家/收款方
         if (txn.payee) {
             topRow.createSpan({ cls: "cost-txn-payee", text: txn.payee });
         }
-        
+
         // 显示地址（带位置图标）
         if (txn.address) {
             const addressEl = topRow.createSpan({ cls: "cost-txn-address" });
@@ -863,7 +863,7 @@ export class CostMainView extends ItemView {
 
         // 第二行：日期、时间、账户、备注
         const bottomRow = infoEl.createDiv({ cls: "cost-txn-bottom-row" });
-        
+
         // 日期部分（可点击编辑）
         const dateEl = bottomRow.createSpan({ cls: "cost-txn-date-clickable" });
         dateEl.setText(txn.date || "未设置日期");
@@ -871,7 +871,7 @@ export class CostMainView extends ItemView {
             e.stopPropagation();
             this.showDatePicker(txn);
         });
-        
+
         // 时间部分（可点击编辑）
         const timeEl = bottomRow.createSpan({ cls: "cost-txn-time-clickable" });
         timeEl.setText(txn.time || "--:--:--");
@@ -879,17 +879,17 @@ export class CostMainView extends ItemView {
             e.stopPropagation();
             this.showTimePicker(txn);
         });
-        
+
         // 显示账户名（不含余额）
         const txnBalances = allRunningBalances.get(txn.path);
         if (txn.from || txn.to) {
             const accountBubble = bottomRow.createSpan({ cls: "cost-txn-account-bubble cost-txn-account-clickable" });
-            
+
             if (txn.txnType === "转账" || txn.txnType === "还款") {
                 // 转账/还款：显示两个账户的 icon
                 const fromAccount = this.findAccountByName(txn.from);
                 const toAccount = this.findAccountByName(txn.to);
-                
+
                 // From 账户（可点击更改）
                 const fromEl = accountBubble.createSpan({ cls: "cost-txn-account-editable" });
                 const fromIconEl = fromEl.createSpan({ cls: "cost-txn-account-icon-small" });
@@ -903,9 +903,9 @@ export class CostMainView extends ItemView {
                     e.stopPropagation();
                     this.showAccountSelectionMenu(e, txn, "from");
                 });
-                
+
                 accountBubble.createSpan({ text: " → " });
-                
+
                 // To 账户（可点击更改）
                 const toEl = accountBubble.createSpan({ cls: "cost-txn-account-editable" });
                 const toIconEl = toEl.createSpan({ cls: "cost-txn-account-icon-small" });
@@ -924,7 +924,7 @@ export class CostMainView extends ItemView {
                 const accountName = txn.from || txn.to;
                 const account = this.findAccountByName(accountName);
                 const field = txn.from ? "from" : "to";
-                
+
                 const accountEl = accountBubble.createSpan({ cls: "cost-txn-account-editable" });
                 const iconEl = accountEl.createSpan({ cls: "cost-txn-account-icon-small" });
                 if (account?.icon) {
@@ -939,12 +939,20 @@ export class CostMainView extends ItemView {
                 });
             }
         }
-        
+
         // 显示备注（note）
         if (txn.note) {
             bottomRow.createSpan({ cls: "cost-txn-note", text: txn.note });
         }
-        
+
+        // 显示参与人
+        if (txn.persons && txn.persons.length > 0) {
+            const personsEl = bottomRow.createSpan({ cls: "cost-txn-persons" });
+            txn.persons.forEach(person => {
+                personsEl.createSpan({ cls: "cost-txn-person-bubble", text: "@" + person });
+            });
+        }
+
         // 显示退款信息
         if (txn.refund > 0) {
             bottomRow.createSpan({ cls: "cost-txn-refund", text: `退款 ${txn.refund.toFixed(2)}` });
@@ -952,7 +960,7 @@ export class CostMainView extends ItemView {
 
         // 金额
         const amountCol = item.createDiv({ cls: "cost-txn-amount-col" });
-        
+
         const amountEl = amountCol.createDiv({ cls: "cost-txn-amount" });
         const prefix = txn.txnType === "收入" ? "+" : (txn.txnType === "支出" || txn.txnType === "还款" ? "-" : "");
         if (txn.txnType === "支出" && txn.refund > 0) {
@@ -1043,9 +1051,9 @@ export class CostMainView extends ItemView {
      * 渲染日期分组（针对特定账户，显示账户余额变化）
      */
     private renderDateGroupForAccount(
-        container: HTMLElement, 
-        date: string, 
-        transactions: TransactionInfo[], 
+        container: HTMLElement,
+        date: string,
+        transactions: TransactionInfo[],
         accountName: string,
         runningBalances?: Map<string, { before: number; after: number }>
     ): void {
@@ -1054,19 +1062,19 @@ export class CostMainView extends ItemView {
         // 日期标题
         const header = group.createDiv({ cls: "cost-date-header" });
         header.createSpan({ cls: "cost-date-text", text: date });
-        
+
         // 计算当日该账户的余额变化
         let dailyChange = 0;
         for (const txn of transactions) {
             dailyChange += this.getTransactionBalanceChange(txn, accountName);
         }
-        
+
         if (dailyChange !== 0) {
             const summaryEl = header.createDiv({ cls: "cost-date-summary" });
             const prefix = dailyChange > 0 ? "+" : "";
-            const changeSpan = summaryEl.createSpan({ 
-                cls: dailyChange > 0 ? "cost-income" : "cost-expense", 
-                text: `${prefix}${dailyChange.toFixed(2)}` 
+            const changeSpan = summaryEl.createSpan({
+                cls: dailyChange > 0 ? "cost-income" : "cost-expense",
+                text: `${prefix}${dailyChange.toFixed(2)}`
             });
         }
 
@@ -1083,8 +1091,8 @@ export class CostMainView extends ItemView {
      * @param runningBalances 运行余额映射（交易路径 -> {before, after}）
      */
     private renderTransactionItem(
-        container: HTMLElement, 
-        txn: TransactionInfo, 
+        container: HTMLElement,
+        txn: TransactionInfo,
         forAccount?: string,
         runningBalances?: Map<string, { before: number; after: number }>
     ): void {
@@ -1096,15 +1104,15 @@ export class CostMainView extends ItemView {
 
         // 交易信息
         const infoEl = item.createDiv({ cls: "cost-txn-info" });
-        
+
         const topRow = infoEl.createDiv({ cls: "cost-txn-top-row" });
         topRow.createSpan({ cls: "cost-txn-category", text: txn.category || "未分类" });
-        
+
         // 显示商家/收款方
         if (txn.payee) {
             topRow.createSpan({ cls: "cost-txn-payee", text: txn.payee });
         }
-        
+
         // 显示地址（带位置图标）
         if (txn.address) {
             const addressEl = topRow.createSpan({ cls: "cost-txn-address" });
@@ -1115,7 +1123,7 @@ export class CostMainView extends ItemView {
 
         // 第二行：日期、时间、账户、备注
         const bottomRow = infoEl.createDiv({ cls: "cost-txn-bottom-row" });
-        
+
         // 日期部分（可点击编辑）
         const dateEl = bottomRow.createSpan({ cls: "cost-txn-date-clickable" });
         dateEl.setText(txn.date || "未设置日期");
@@ -1123,7 +1131,7 @@ export class CostMainView extends ItemView {
             e.stopPropagation();
             this.showDatePicker(txn);
         });
-        
+
         // 时间部分（可点击编辑）
         const timeEl = bottomRow.createSpan({ cls: "cost-txn-time-clickable" });
         timeEl.setText(txn.time || "--:--:--");
@@ -1131,16 +1139,16 @@ export class CostMainView extends ItemView {
             e.stopPropagation();
             this.showTimePicker(txn);
         });
-        
+
         // 显示账户名（带图标，使用统一的气泡样式，可点击更改）
         if (txn.from || txn.to) {
             const accountBubble = bottomRow.createSpan({ cls: "cost-txn-account-bubble cost-txn-account-clickable" });
-            
+
             if (txn.txnType === "转账" || txn.txnType === "还款") {
                 // 转账/还款：显示两个账户的 icon
                 const fromAccount = this.findAccountByName(txn.from);
                 const toAccount = this.findAccountByName(txn.to);
-                
+
                 // From 账户（可点击更改）
                 const fromEl = accountBubble.createSpan({ cls: "cost-txn-account-editable" });
                 const fromIconEl = fromEl.createSpan({ cls: "cost-txn-account-icon-small" });
@@ -1154,9 +1162,9 @@ export class CostMainView extends ItemView {
                     e.stopPropagation();
                     this.showAccountSelectionMenu(e, txn, "from");
                 });
-                
+
                 accountBubble.createSpan({ text: " → " });
-                
+
                 // To 账户（可点击更改）
                 const toEl = accountBubble.createSpan({ cls: "cost-txn-account-editable" });
                 const toIconEl = toEl.createSpan({ cls: "cost-txn-account-icon-small" });
@@ -1175,7 +1183,7 @@ export class CostMainView extends ItemView {
                 const accountName = txn.from || txn.to;
                 const account = this.findAccountByName(accountName);
                 const field = txn.from ? "from" : "to";
-                
+
                 const accountEl = accountBubble.createSpan({ cls: "cost-txn-account-editable" });
                 const acctIconEl = accountEl.createSpan({ cls: "cost-txn-account-icon-small" });
                 if (account?.icon) {
@@ -1190,12 +1198,20 @@ export class CostMainView extends ItemView {
                 });
             }
         }
-        
+
         // 显示备注（note）
         if (txn.note) {
             bottomRow.createSpan({ cls: "cost-txn-note", text: txn.note });
         }
-        
+
+        // 显示参与人
+        if (txn.persons && txn.persons.length > 0) {
+            const personsEl = bottomRow.createSpan({ cls: "cost-txn-persons" });
+            txn.persons.forEach(person => {
+                personsEl.createSpan({ cls: "cost-txn-person-bubble", text: person });
+            });
+        }
+
         // 显示退款信息
         if (txn.refund > 0) {
             bottomRow.createSpan({ cls: "cost-txn-refund", text: `退款 ${txn.refund.toFixed(2)}` });
@@ -1203,7 +1219,7 @@ export class CostMainView extends ItemView {
 
         // 金额和余额变化
         const amountCol = item.createDiv({ cls: "cost-txn-amount-col" });
-        
+
         // 交易金额（如果有退款，显示实际支出）
         const amountEl = amountCol.createDiv({ cls: "cost-txn-amount" });
         const prefix = txn.txnType === "收入" ? "+" : (txn.txnType === "支出" || txn.txnType === "还款" ? "-" : "");
@@ -1235,12 +1251,12 @@ export class CostMainView extends ItemView {
                 else if (beforeVal < 0) beforeSpan.addClass("cost-balance-negative");
                 if (afterVal > 0) afterSpan.addClass("cost-balance-positive");
                 else if (afterVal < 0) afterSpan.addClass("cost-balance-negative");
-                
+
                 // 根据账户类型和余额变化方向设置颜色
                 const account = this.findAccountByName(forAccount);
                 const isCredit = account?.accountKind === "credit";
                 const change = balance.after - balance.before;
-                
+
                 if (isCredit) {
                     // 信用卡（负债）
                     if (change > 0) {
@@ -1274,7 +1290,7 @@ export class CostMainView extends ItemView {
     private getTransactionBalanceChange(txn: TransactionInfo, accountName: string): number {
         const fromName = txn.from?.replace(/\[\[|\]\]/g, "") || "";
         const toName = txn.to?.replace(/\[\[|\]\]/g, "") || "";
-        
+
         switch (txn.txnType) {
             case "收入":
                 // 收入：to 账户增加
@@ -1318,10 +1334,10 @@ export class CostMainView extends ItemView {
      */
     private renderAllAccountChanges(container: HTMLElement, txn: TransactionInfo): void {
         const changes: { account: string; change: number }[] = [];
-        
+
         const fromName = txn.from?.replace(/\[\[|\]\]/g, "") || "";
         const toName = txn.to?.replace(/\[\[|\]\]/g, "") || "";
-        
+
         switch (txn.txnType) {
             case "收入":
                 if (toName) {
@@ -1355,7 +1371,7 @@ export class CostMainView extends ItemView {
                 }
                 break;
         }
-        
+
         if (changes.length > 0) {
             const changesContainer = container.createDiv({ cls: "cost-txn-account-changes" });
             for (const { account, change } of changes) {
@@ -1413,7 +1429,7 @@ export class CostMainView extends ItemView {
         mainSection.createDiv({ cls: "cost-summary-main-label", text: "净资产" });
         const mainValue = mainSection.createDiv({ cls: "cost-summary-main-value" });
         mainValue.createSpan({ cls: "cost-summary-currency", text: "¥" });
-        mainValue.createSpan({ 
+        mainValue.createSpan({
             cls: `cost-summary-amount ${netWorth >= 0 ? "cost-balance-positive" : "cost-balance-negative"}`,
             text: this.formatNumber(Math.abs(netWorth))
         });
@@ -1433,23 +1449,23 @@ export class CostMainView extends ItemView {
 
         // 详情区域 - 资产和负债
         const detailSection = summaryCard.createDiv({ cls: "cost-summary-detail" });
-        
+
         // 资产
         const assetItem = detailSection.createDiv({ cls: "cost-summary-detail-item" });
         assetItem.createDiv({ cls: "cost-summary-detail-dot cost-dot-asset" });
         assetItem.createDiv({ cls: "cost-summary-detail-label", text: "资产" });
-        assetItem.createDiv({ 
-            cls: "cost-summary-detail-value", 
-            text: `¥${this.formatNumber(assetsTotal)}` 
+        assetItem.createDiv({
+            cls: "cost-summary-detail-value",
+            text: `¥${this.formatNumber(assetsTotal)}`
         });
 
         // 负债
         const liabilityItem = detailSection.createDiv({ cls: "cost-summary-detail-item" });
         liabilityItem.createDiv({ cls: "cost-summary-detail-dot cost-dot-liability" });
         liabilityItem.createDiv({ cls: "cost-summary-detail-label", text: "负债" });
-        liabilityItem.createDiv({ 
-            cls: "cost-summary-detail-value", 
-            text: `¥${this.formatNumber(liabilitiesTotal)}` 
+        liabilityItem.createDiv({
+            cls: "cost-summary-detail-value",
+            text: `¥${this.formatNumber(liabilitiesTotal)}`
         });
     }
 
@@ -1569,8 +1585,8 @@ export class CostMainView extends ItemView {
      * 渲染账户列表项
      */
     private renderAccountListItem(container: HTMLElement, account: AccountInfo, isSelected: boolean): void {
-        const item = container.createDiv({ 
-            cls: `cost-account-list-item ${isSelected ? "is-selected" : ""}` 
+        const item = container.createDiv({
+            cls: `cost-account-list-item ${isSelected ? "is-selected" : ""}`
         });
 
         // 图标（优先使用自定义图标）
@@ -1579,7 +1595,7 @@ export class CostMainView extends ItemView {
 
         // 信息
         const infoEl = item.createDiv({ cls: "cost-account-list-info" });
-        
+
         const nameEl = infoEl.createDiv({ cls: "cost-account-list-name" });
         nameEl.setText(account.displayName);
 
@@ -1808,7 +1824,7 @@ export class CostMainView extends ItemView {
             }
             return;
         }
-        
+
         const match = iconLink.match(/\[\[(.+?)\]\]/);
         if (match && match[1]) {
             const fileName: string = match[1];
@@ -1832,11 +1848,11 @@ export class CostMainView extends ItemView {
      */
     private findAccountByName(accountName: string): AccountInfo | undefined {
         if (!accountName) return undefined;
-        
+
         // 先从缓存查找
         const cached = this.accountNameCache.get(accountName);
         if (cached) return cached;
-        
+
         // 缓存未命中，重建缓存后再查找
         this.rebuildAccountNameCache();
         return this.accountNameCache.get(accountName);
@@ -1848,27 +1864,27 @@ export class CostMainView extends ItemView {
     private showAccountSelectionMenu(event: MouseEvent, txn: TransactionInfo, field: "from" | "to"): void {
         const menu = new Menu();
         const accounts = this.plugin.accountService.getAccounts();
-        
+
         // 按账户类型分组
         const grouped = this.groupAccountsByKind(accounts);
-        
+
         // 按优先级顺序添加菜单项
         for (const kind of this.accountKindOrder) {
             const groupAccounts = grouped.get(kind);
             if (groupAccounts && groupAccounts.length > 0) {
                 const kindName = this.accountKindNames[kind] || kind;
-                
+
                 // 添加分组标题
                 menu.addItem((item) => {
                     item.setTitle(`── ${kindName} ──`)
                         .setDisabled(true);
                 });
-                
+
                 // 添加该分组下的账户
                 for (const account of groupAccounts) {
                     const currentValue = field === "from" ? txn.from : txn.to;
                     const isSelected = account.fileName === currentValue;
-                    
+
                     menu.addItem((item) => {
                         item.setTitle(`${isSelected ? "✓ " : "   "}${this.getAccountIcon(account.accountKind)} ${account.displayName}`)
                             .onClick(async () => {
@@ -1878,7 +1894,7 @@ export class CostMainView extends ItemView {
                 }
             }
         }
-        
+
         menu.showAtMouseEvent(event);
     }
 
@@ -1888,22 +1904,22 @@ export class CostMainView extends ItemView {
     private async updateTransactionAccount(txn: TransactionInfo, field: "from" | "to", newAccountName: string): Promise<void> {
         const file = this.app.vault.getAbstractFileByPath(txn.path);
         if (!file) return;
-        
+
         try {
             // 使用 processFrontMatter 更新 frontmatter
             await this.app.fileManager.processFrontMatter(file as any, (frontmatter) => {
                 frontmatter[field] = newAccountName;
             });
-            
+
             // 等待一小段时间让 metadata 缓存更新
             await new Promise(resolve => setTimeout(resolve, 100));
-            
+
             // 刷新交易缓存
             await this.plugin.transactionService.scanTransactions();
-            
+
             // 重新渲染视图
             this.render();
-            
+
         } catch (error) {
             console.error("Failed to update transaction account:", error);
         }
@@ -1916,31 +1932,31 @@ export class CostMainView extends ItemView {
         // 创建一个模态框或输入框来选择日期
         const modal = document.createElement("div");
         modal.className = "cost-date-picker-modal";
-        
+
         const backdrop = document.createElement("div");
         backdrop.className = "cost-picker-backdrop";
         backdrop.addEventListener("click", () => {
             modal.remove();
             backdrop.remove();
         });
-        
+
         const content = document.createElement("div");
         content.className = "cost-picker-content";
-        
+
         const label = document.createElement("div");
         label.className = "cost-picker-label";
         label.textContent = "选择日期";
         content.appendChild(label);
-        
+
         const input = document.createElement("input");
         input.type = "date";
         input.className = "cost-picker-input";
         input.value = txn.date || "";
         content.appendChild(input);
-        
+
         const btnRow = document.createElement("div");
         btnRow.className = "cost-picker-buttons";
-        
+
         const cancelBtn = document.createElement("button");
         cancelBtn.textContent = "取消";
         cancelBtn.className = "cost-picker-btn";
@@ -1949,7 +1965,7 @@ export class CostMainView extends ItemView {
             backdrop.remove();
         });
         btnRow.appendChild(cancelBtn);
-        
+
         const confirmBtn = document.createElement("button");
         confirmBtn.textContent = "确定";
         confirmBtn.className = "cost-picker-btn cost-picker-btn-primary";
@@ -1961,13 +1977,13 @@ export class CostMainView extends ItemView {
             backdrop.remove();
         });
         btnRow.appendChild(confirmBtn);
-        
+
         content.appendChild(btnRow);
         modal.appendChild(content);
-        
+
         document.body.appendChild(backdrop);
         document.body.appendChild(modal);
-        
+
         input.focus();
     }
 
@@ -1977,32 +1993,32 @@ export class CostMainView extends ItemView {
     private showTimePicker(txn: TransactionInfo): void {
         const modal = document.createElement("div");
         modal.className = "cost-date-picker-modal";
-        
+
         const backdrop = document.createElement("div");
         backdrop.className = "cost-picker-backdrop";
         backdrop.addEventListener("click", () => {
             modal.remove();
             backdrop.remove();
         });
-        
+
         const content = document.createElement("div");
         content.className = "cost-picker-content";
-        
+
         const label = document.createElement("div");
         label.className = "cost-picker-label";
         label.textContent = "选择时间";
         content.appendChild(label);
-        
+
         const input = document.createElement("input");
         input.type = "time";
         input.step = "1";  // 支持秒
         input.className = "cost-picker-input";
         input.value = txn.time || "";
         content.appendChild(input);
-        
+
         const btnRow = document.createElement("div");
         btnRow.className = "cost-picker-buttons";
-        
+
         const cancelBtn = document.createElement("button");
         cancelBtn.textContent = "取消";
         cancelBtn.className = "cost-picker-btn";
@@ -2011,7 +2027,7 @@ export class CostMainView extends ItemView {
             backdrop.remove();
         });
         btnRow.appendChild(cancelBtn);
-        
+
         const confirmBtn = document.createElement("button");
         confirmBtn.textContent = "确定";
         confirmBtn.className = "cost-picker-btn cost-picker-btn-primary";
@@ -2023,13 +2039,13 @@ export class CostMainView extends ItemView {
             backdrop.remove();
         });
         btnRow.appendChild(confirmBtn);
-        
+
         content.appendChild(btnRow);
         modal.appendChild(content);
-        
+
         document.body.appendChild(backdrop);
         document.body.appendChild(modal);
-        
+
         input.focus();
     }
 
@@ -2039,16 +2055,16 @@ export class CostMainView extends ItemView {
     private async updateTransactionDate(txn: TransactionInfo, newDate: string): Promise<void> {
         const file = this.app.vault.getAbstractFileByPath(txn.path);
         if (!file) return;
-        
+
         try {
             await this.app.fileManager.processFrontMatter(file as any, (frontmatter) => {
                 frontmatter.date = newDate;
             });
-            
+
             await new Promise(resolve => setTimeout(resolve, 100));
             await this.plugin.transactionService.scanTransactions();
             this.render();
-            
+
         } catch (error) {
             console.error("Failed to update transaction date:", error);
         }
@@ -2060,16 +2076,16 @@ export class CostMainView extends ItemView {
     private async updateTransactionTime(txn: TransactionInfo, newTime: string): Promise<void> {
         const file = this.app.vault.getAbstractFileByPath(txn.path);
         if (!file) return;
-        
+
         try {
             await this.app.fileManager.processFrontMatter(file as any, (frontmatter) => {
                 frontmatter.time = newTime;
             });
-            
+
             await new Promise(resolve => setTimeout(resolve, 100));
             await this.plugin.transactionService.scanTransactions();
             this.render();
-            
+
         } catch (error) {
             console.error("Failed to update transaction time:", error);
         }
@@ -2079,40 +2095,345 @@ export class CostMainView extends ItemView {
      * 创建新交易
      */
     private async createNewTransaction(): Promise<void> {
+        this.showTransactionCreationModal();
+    }
+
+    /**
+     * 显示交易创建对话框
+     */
+    private showTransactionCreationModal(): void {
+        const modal = document.createElement("div");
+        modal.className = "cost-transaction-modal";
+
+        const backdrop = document.createElement("div");
+        backdrop.className = "cost-modal-backdrop";
+        backdrop.addEventListener("click", () => {
+            modal.remove();
+            backdrop.remove();
+        });
+
+        const content = document.createElement("div");
+        content.className = "cost-modal-content";
+
+        // 标题
+        const title = document.createElement("div");
+        title.className = "cost-modal-title";
+        title.textContent = "创建新交易";
+        content.appendChild(title);
+
+        // 表单容器
+        const form = document.createElement("div");
+        form.className = "cost-modal-form";
+
+        // 交易类型
+        const typeGroup = this.createFormGroup("交易类型", "select", "txn_type");
+        const typeSelect = typeGroup.querySelector("select") as HTMLSelectElement;
+        ["支出", "收入", "转账", "还款"].forEach(type => {
+            const option = document.createElement("option");
+            option.value = type;
+            option.textContent = type;
+            typeSelect.appendChild(option);
+        });
+        form.appendChild(typeGroup);
+
+        // 金额
+        const amountGroup = this.createFormGroup("金额", "number", "amount");
+        const amountInput = amountGroup.querySelector("input") as HTMLInputElement;
+        amountInput.step = "0.01";
+        amountInput.min = "0";
+        amountInput.placeholder = "0.00";
+        form.appendChild(amountGroup);
+
+        // 分类
+        const categoryGroup = this.createFormGroup("分类", "select", "category");
+        const categorySelect = categoryGroup.querySelector("select") as HTMLSelectElement;
+        this.populateCategorySelect(categorySelect);
+        form.appendChild(categoryGroup);
+
+        // 账户（from）
+        const fromGroup = this.createFormGroup("支出账户", "select", "from");
+        const fromSelect = fromGroup.querySelector("select") as HTMLSelectElement;
+        this.populateAccountSelect(fromSelect);
+        form.appendChild(fromGroup);
+
+        // 账户（to）- 默认隐藏
+        const toGroup = this.createFormGroup("收入账户", "select", "to");
+        const toSelect = toGroup.querySelector("select") as HTMLSelectElement;
+        this.populateAccountSelect(toSelect);
+        toGroup.style.display = "none";
+        form.appendChild(toGroup);
+
+        // 商家/收款方
+        const payeeGroup = this.createFormGroup("商家/收款方", "text", "payee");
+        const payeeInput = payeeGroup.querySelector("input") as HTMLInputElement;
+        payeeInput.placeholder = "可选";
+        form.appendChild(payeeGroup);
+
+        // 备注
+        const noteGroup = this.createFormGroup("备注", "text", "note");
+        const noteInput = noteGroup.querySelector("input") as HTMLInputElement;
+        noteInput.placeholder = "可选";
+        form.appendChild(noteGroup);
+
+        content.appendChild(form);
+
+        // 根据交易类型动态调整显示
+        typeSelect.addEventListener("change", () => {
+            const type = typeSelect.value;
+            const fromLabel = fromGroup.querySelector("label") as HTMLLabelElement;
+            const toLabel = toGroup.querySelector("label") as HTMLLabelElement;
+
+            if (type === "支出") {
+                fromLabel.textContent = "支出账户";
+                toGroup.style.display = "none";
+                fromGroup.style.display = "block";
+            } else if (type === "收入") {
+                toLabel.textContent = "收入账户";
+                fromGroup.style.display = "none";
+                toGroup.style.display = "block";
+            } else if (type === "转账" || type === "还款") {
+                fromLabel.textContent = "转出账户";
+                toLabel.textContent = "转入账户";
+                fromGroup.style.display = "block";
+                toGroup.style.display = "block";
+            }
+        });
+
+        // 按钮行
+        const btnRow = document.createElement("div");
+        btnRow.className = "cost-modal-buttons";
+
+        const cancelBtn = document.createElement("button");
+        cancelBtn.textContent = "取消";
+        cancelBtn.className = "cost-modal-btn";
+        cancelBtn.addEventListener("click", () => {
+            modal.remove();
+            backdrop.remove();
+        });
+        btnRow.appendChild(cancelBtn);
+
+        const confirmBtn = document.createElement("button");
+        confirmBtn.textContent = "创建";
+        confirmBtn.className = "cost-modal-btn cost-modal-btn-primary";
+        confirmBtn.addEventListener("click", async () => {
+            const txnType = typeSelect.value as "收入" | "支出" | "还款" | "转账";
+            const amount = parseFloat(amountInput.value) || 0;
+            const category = categorySelect.value.trim();
+            const from = fromSelect.value;
+            const to = toSelect.value;
+            const payee = payeeInput.value.trim();
+            const note = noteInput.value.trim();
+
+            // 验证必填字段
+            if (amount <= 0) {
+                amountInput.focus();
+                amountInput.style.borderColor = "var(--color-red)";
+                return;
+            }
+
+            if (!category) {
+                categorySelect.focus();
+                categorySelect.style.borderColor = "var(--color-red)";
+                return;
+            }
+
+            // 根据交易类型验证账户
+            if (txnType === "支出" && !from) {
+                fromSelect.focus();
+                fromSelect.style.borderColor = "var(--color-red)";
+                return;
+            }
+
+            if (txnType === "收入" && !to) {
+                toSelect.focus();
+                toSelect.style.borderColor = "var(--color-red)";
+                return;
+            }
+
+            if ((txnType === "转账" || txnType === "还款") && (!from || !to)) {
+                if (!from) fromSelect.style.borderColor = "var(--color-red)";
+                if (!to) toSelect.style.borderColor = "var(--color-red)";
+                return;
+            }
+
+            // 创建交易
+            await this.createTransactionFile(txnType, amount, category, from, to, payee, note);
+
+            modal.remove();
+            backdrop.remove();
+        });
+        btnRow.appendChild(confirmBtn);
+
+        content.appendChild(btnRow);
+        modal.appendChild(content);
+
+        document.body.appendChild(backdrop);
+        document.body.appendChild(modal);
+
+        // 聚焦到金额输入框
+        amountInput.focus();
+    }
+
+    /**
+     * 创建表单组
+     */
+    private createFormGroup(label: string, type: string, name: string): HTMLElement {
+        const group = document.createElement("div");
+        group.className = "cost-form-group";
+
+        const labelEl = document.createElement("label");
+        labelEl.textContent = label;
+        labelEl.htmlFor = name;
+        group.appendChild(labelEl);
+
+        if (type === "select") {
+            const select = document.createElement("select");
+            select.id = name;
+            select.name = name;
+            select.className = "cost-form-input";
+            const emptyOption = document.createElement("option");
+            emptyOption.value = "";
+            emptyOption.textContent = "请选择...";
+            select.appendChild(emptyOption);
+            group.appendChild(select);
+        } else {
+            const input = document.createElement("input");
+            input.type = type;
+            input.id = name;
+            input.name = name;
+            input.className = "cost-form-input";
+            group.appendChild(input);
+        }
+
+        return group;
+    }
+
+    /**
+     * 填充账户选择框
+     */
+    private populateAccountSelect(select: HTMLSelectElement): void {
+        const accounts = this.plugin.accountService.getAccounts();
+        const grouped = this.groupAccountsByKind(accounts);
+
+        for (const kind of this.accountKindOrder) {
+            const groupAccounts = grouped.get(kind);
+            if (groupAccounts && groupAccounts.length > 0) {
+                const optgroup = document.createElement("optgroup");
+                optgroup.label = this.accountKindNames[kind] || kind;
+
+                for (const account of groupAccounts) {
+                    const option = document.createElement("option");
+                    option.value = account.fileName;
+                    option.textContent = account.displayName;
+                    optgroup.appendChild(option);
+                }
+
+                select.appendChild(optgroup);
+            }
+        }
+    }
+
+    /**
+     * 填充分类选择框
+     */
+    private populateCategorySelect(select: HTMLSelectElement): void {
+        const transactions = this.plugin.transactionService.getTransactions();
+        const categories = new Set<string>();
+
+        // 收集所有分类
+        for (const txn of transactions) {
+            if (txn.category) {
+                categories.add(txn.category);
+            }
+        }
+
+        // 按字母排序
+        const sortedCategories = Array.from(categories).sort();
+
+        // 添加常用分类（如果不存在）
+        const commonCategories = [
+            "餐饮/早餐",
+            "餐饮/午餐",
+            "餐饮/晚餐",
+            "交通/公交",
+            "交通/打车",
+            "购物/日用品",
+            "购物/服饰",
+            "娱乐/电影",
+            "娱乐/游戏",
+            "医疗/药品",
+            "教育/书籍",
+            "住房/租金",
+            "通讯/话费",
+            "其他"
+        ];
+
+        for (const category of commonCategories) {
+            if (!categories.has(category)) {
+                sortedCategories.push(category);
+            }
+        }
+
+        // 添加到下拉框
+        for (const category of sortedCategories) {
+            const option = document.createElement("option");
+            option.value = category;
+            option.textContent = category;
+            select.appendChild(option);
+        }
+    }
+
+    /**
+     * 创建交易文件
+     */
+    private async createTransactionFile(
+        txnType: "收入" | "支出" | "还款" | "转账",
+        amount: number,
+        category: string,
+        from: string,
+        to: string,
+        payee: string,
+        note: string
+    ): Promise<void> {
         const settings = this.plugin.settings;
         const now = new Date();
-        
+
         // 生成唯一ID
         const id = this.generateTransactionId();
-        
-        // 格式化日期和时间
-        const date = now.toISOString().split('T')[0];
-        const time = now.toTimeString().split(' ')[0];
-        
-        // 构建文件路径
+
+        // 格式化日期和时间（使用本地时间）
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
         const day = String(now.getDate()).padStart(2, '0');
+        const date = `${year}-${month}-${day}`;
+
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        const time = `${hours}:${minutes}:${seconds}`;
+
+        // 构建文件路径
         const folderPath = `${settings.transactionsPath}/${year}/${year}-${month}/${year}-${month}-${day}`;
         const filePath = `${folderPath}/${id}.md`;
-        
+
         // 构建frontmatter内容
         const content = `---
 type: txn
 uid: ${id}
 date: ${date}
 time: ${time}
-txn_type: 支出
-category: 
-amount: 0
+txn_type: ${txnType}
+category: ${category}
+amount: ${amount}
 refund: 0
 currency: CNY
-from: 
-to: 
-payee: ""
+from: ${from}
+to: ${to}
+payee: "${payee}"
 address: 
+persons: []
 tags: []
-note: 
+note: ${note}
 ---
 
 `;
@@ -2121,18 +2442,18 @@ note:
         try {
             // 创建文件夹（如果不存在）
             await this.ensureFolderExists(folderPath);
-            
+
             // 创建文件
             const file = await this.app.vault.create(filePath, content);
-            
+
             // 刷新交易列表
             await this.plugin.transactionService.scanTransactions();
             await this.render();
-            
+
             // 打开新创建的文件
             const leaf = this.app.workspace.getLeaf(false);
             await leaf.openFile(file);
-            
+
         } catch (error) {
             console.error("Failed to create transaction:", error);
         }

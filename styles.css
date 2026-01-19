@@ -88,7 +88,7 @@ Obsidian Cost Plugin Styles
 
 .cost-sidebar-header h4 {
 	margin: 0;
-	font-size: 14px;
+	font-size: 12px;
 	font-weight: 600;
 }
 
@@ -109,9 +109,9 @@ Obsidian Cost Plugin Styles
 
 /* 余额汇总卡片 - 现代设计 */
 .cost-balance-summary-card {
-	padding: 14px 16px;
+	padding: 10px 12px;
 	background: var(--background-primary);
-	border-radius: 12px;
+	border-radius: 10px;
 	border: 1px solid var(--background-modifier-border);
 	width: 100%;
 	box-sizing: border-box;
@@ -124,11 +124,11 @@ Obsidian Cost Plugin Styles
 }
 
 .cost-summary-main-label {
-	font-size: 11px;
+	font-size: 9px;
 	color: var(--text-muted);
 	text-transform: uppercase;
-	letter-spacing: 1px;
-	margin-bottom: 4px;
+	letter-spacing: 0.5px;
+	margin-bottom: 3px;
 }
 
 .cost-summary-main-value {
@@ -139,16 +139,16 @@ Obsidian Cost Plugin Styles
 }
 
 .cost-summary-currency {
-	font-size: 16px;
+	font-size: 13px;
 	font-weight: 500;
 	color: var(--text-muted);
 }
 
 .cost-summary-amount {
-	font-size: 28px;
+	font-size: 22px;
 	font-weight: 700;
 	font-family: var(--font-monospace);
-	letter-spacing: -1px;
+	letter-spacing: -0.5px;
 }
 
 .cost-summary-negative::before {
@@ -206,12 +206,12 @@ Obsidian Cost Plugin Styles
 }
 
 .cost-summary-detail-label {
-	font-size: 11px;
+	font-size: 10px;
 	color: var(--text-muted);
 }
 
 .cost-summary-detail-value {
-	font-size: 12px;
+	font-size: 11px;
 	font-weight: 600;
 	font-family: var(--font-monospace);
 	color: var(--text-normal);
@@ -229,10 +229,10 @@ Obsidian Cost Plugin Styles
 .cost-account-group-header {
 	display: flex;
 	align-items: center;
-	padding: 8px 12px;
+	padding: 6px 10px;
 	background: transparent;
-	gap: 6px;
-	font-size: 12px;
+	gap: 4px;
+	font-size: 11px;
 	color: var(--text-muted);
 	position: sticky;
 	top: 0;
@@ -240,7 +240,7 @@ Obsidian Cost Plugin Styles
 }
 
 .cost-account-group-icon {
-	font-size: 14px;
+	font-size: 12px;
 }
 
 .cost-account-group-name {
@@ -255,7 +255,7 @@ Obsidian Cost Plugin Styles
 .cost-account-group-total {
 	margin-left: auto;
 	font-weight: 600;
-	font-size: 13px;
+	font-size: 11px;
 }
 
 .cost-account-group-list {
@@ -265,12 +265,12 @@ Obsidian Cost Plugin Styles
 .cost-account-item {
 	display: flex;
 	align-items: center;
-	padding: 10px 12px;
+	padding: 8px 10px;
 	cursor: pointer;
-	gap: 10px;
+	gap: 8px;
 	background: var(--background-primary);
-	border-radius: 8px;
-	margin: 4px 8px;
+	border-radius: 6px;
+	margin: 3px 6px;
 }
 
 .cost-account-item:hover {
@@ -279,9 +279,9 @@ Obsidian Cost Plugin Styles
 }
 
 .cost-account-icon {
-	font-size: 20px;
-	width: 32px;
-	height: 32px;
+	font-size: 18px;
+	width: 28px;
+	height: 28px;
 	text-align: center;
 	display: flex;
 	align-items: center;
@@ -289,10 +289,10 @@ Obsidian Cost Plugin Styles
 }
 
 .cost-account-custom-icon {
-	width: 24px;
-	height: 24px;
+	width: 20px;
+	height: 20px;
 	object-fit: contain;
-	border-radius: 4px;
+	border-radius: 3px;
 }
 
 .cost-account-info {
@@ -301,6 +301,7 @@ Obsidian Cost Plugin Styles
 }
 
 .cost-account-name {
+	font-size: 13px;
 	font-weight: 500;
 	white-space: nowrap;
 	overflow: hidden;
@@ -308,14 +309,14 @@ Obsidian Cost Plugin Styles
 }
 
 .cost-account-detail {
-	font-size: 12px;
+	font-size: 11px;
 	color: var(--text-muted);
-	margin-top: 2px;
+	margin-top: 1px;
 }
 
 .cost-account-balance {
 	font-weight: 600;
-	font-size: 13px;
+	font-size: 12px;
 	white-space: nowrap;
 }
 
@@ -651,8 +652,8 @@ Obsidian Cost Plugin Styles
 .cost-category-chart {
 	width: 100%;
 	max-width: 240px;
-    margin-top: -20px;
-    margin-bottom: -20px;
+	margin-top: -20px;
+	margin-bottom: -20px;
 	aspect-ratio: 1;
 	display: flex;
 	align-items: center;
@@ -698,8 +699,13 @@ Obsidian Cost Plugin Styles
 }
 
 @keyframes highlight-pulse {
-	0% { background: var(--text-accent); }
-	100% { background: transparent; }
+	0% {
+		background: var(--text-accent);
+	}
+
+	100% {
+		background: transparent;
+	}
 }
 
 /* 日期分组 */
@@ -1011,10 +1017,12 @@ Obsidian Cost Plugin Styles
 	background-color: var(--background-modifier-hover);
 	color: var(--text-muted);
 }
+
 /* 余额变动正负色 */
 .cost-balance-positive {
 	color: var(--color-green);
 }
+
 .cost-balance-negative {
 	color: var(--color-red);
 }
@@ -1177,12 +1185,15 @@ Obsidian Cost Plugin Styles
 .cost-accounts-col-list {
 	flex: 1;
 	overflow-y: auto;
-	scrollbar-width: none; /* Firefox */
-	-ms-overflow-style: none; /* IE/Edge */
+	scrollbar-width: none;
+	/* Firefox */
+	-ms-overflow-style: none;
+	/* IE/Edge */
 }
 
 .cost-accounts-col-list::-webkit-scrollbar {
-	display: none; /* Chrome/Safari/Opera */
+	display: none;
+	/* Chrome/Safari/Opera */
 }
 
 .cost-account-list-item {
@@ -1478,4 +1489,129 @@ Obsidian Cost Plugin Styles
 	font-size: 10px;
 	color: var(--text-faint);
 	margin-top: 2px;
+}
+
+/* 参与人气泡 */
+.cost-txn-persons {
+	display: flex;
+	gap: 4px;
+	margin-left: 4px;
+}
+
+.cost-txn-person-bubble {
+	font-size: 11px;
+	background: var(--background-secondary);
+	color: var(--text-muted);
+	padding: 1px 6px;
+	border-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+}
+
+/* 交易创建模态对话框 */
+.cost-modal-backdrop {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.5);
+	z-index: 9998;
+	backdrop-filter: blur(2px);
+}
+
+.cost-transaction-modal {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	z-index: 9999;
+	max-width: 500px;
+	width: 90%;
+	max-height: 80vh;
+	overflow-y: auto;
+}
+
+.cost-modal-content {
+	background: var(--background-primary);
+	border-radius: 12px;
+	padding: 24px;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+	border: 1px solid var(--background-modifier-border);
+}
+
+.cost-modal-title {
+	font-size: 18px;
+	font-weight: 600;
+	margin-bottom: 20px;
+	color: var(--text-normal);
+}
+
+.cost-modal-form {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.cost-form-group {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.cost-form-group label {
+	font-size: 13px;
+	font-weight: 500;
+	color: var(--text-normal);
+}
+
+.cost-form-input {
+	padding: 8px 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	font-size: 14px;
+	transition: border-color 0.2s;
+}
+
+.cost-form-input:focus {
+	outline: none;
+	border-color: var(--interactive-accent);
+}
+
+.cost-form-input::placeholder {
+	color: var(--text-faint);
+}
+
+.cost-modal-buttons {
+	display: flex;
+	gap: 12px;
+	justify-content: flex-end;
+	margin-top: 20px;
+}
+
+.cost-modal-btn {
+	padding: 8px 16px;
+	border-radius: 6px;
+	font-size: 14px;
+	font-weight: 500;
+	cursor: pointer;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	transition: all 0.2s;
+}
+
+.cost-modal-btn:hover {
+	background: var(--background-modifier-hover);
+}
+
+.cost-modal-btn-primary {
+	background: var(--interactive-accent);
+	color: white;
+	border-color: var(--interactive-accent);
+}
+
+.cost-modal-btn-primary:hover {
+	opacity: 0.9;
 }
