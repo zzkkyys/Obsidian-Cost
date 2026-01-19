@@ -35,6 +35,8 @@ export interface TransactionFrontmatter {
     from: string;
     to: string;
     payee: string;
+    /** 地址 */
+    address?: string;
     memo: string;
     tags?: string[];
 }

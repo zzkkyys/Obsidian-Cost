@@ -452,6 +452,13 @@ Obsidian Cost Plugin Styles
 	font-size: 13px;
 }
 
+.cost-txn-address {
+	display: inline-flex;
+	align-items: center;
+	color: var(--text-faint);
+	font-size: 12px;
+}
+
 .cost-txn-bottom-row {
 	display: flex;
 	align-items: center;
@@ -531,8 +538,18 @@ Obsidian Cost Plugin Styles
 
 /* 位置图标 */
 .cost-txn-location-icon {
-	font-size: 10px;
-	margin-right: 2px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 14px;
+	height: 14px;
+	margin-right: 3px;
+	vertical-align: middle;
+}
+
+.cost-txn-location-icon svg {
+	width: 100%;
+	height: 100%;
 }
 
 .cost-txn-time {

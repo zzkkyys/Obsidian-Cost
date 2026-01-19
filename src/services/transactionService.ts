@@ -29,8 +29,10 @@ export interface TransactionInfo {
     from: string;
     /** 目标账户 */
     to: string;
-    /** 收款方 */
+    /** 收款方/商家 */
     payee: string;
+    /** 地址 */
+    address: string;
     /** 备注 */
     memo: string;
 }
@@ -137,6 +139,7 @@ export class TransactionService {
             from: fm.from || "",
             to: fm.to || "",
             payee: fm.payee || "",
+            address: (fm as any).address || "",
             memo: fm.memo || "",
         };
     }
