@@ -15,6 +15,12 @@ export class CostMainView extends ItemView {
     private plugin: CostPlugin;
     private currentTab: TabType = "transactions";
     private selectedAccount: AccountInfo | null = null;
+    
+    // 性能优化：缓存
+    private iconCache: Map<string, string> = new Map();  // icon link -> resource path
+    private accountNameCache: Map<string, AccountInfo> = new Map();  // account name -> account info
+    private lastCacheTime: number = 0;
+    private readonly CACHE_DURATION = 5000;  // 5秒缓存
 
     constructor(leaf: WorkspaceLeaf, plugin: CostPlugin) {
         super(leaf);
@@ -58,6 +64,9 @@ export class CostMainView extends ItemView {
      */
     async render(): Promise<void> {
         this.contentEl.empty();
+        
+        // 刷新缓存
+        this.refreshCacheIfNeeded();
 
         // 标签栏
         this.renderTabs();
@@ -70,6 +79,40 @@ export class CostMainView extends ItemView {
         } else {
             await this.renderAccountsTab(content);
         }
+    }
+
+    /**
+     * 刷新缓存（如果需要）
+     */
+    private refreshCacheIfNeeded(): void {
+        const now = Date.now();
+        if (now - this.lastCacheTime > this.CACHE_DURATION) {
+            this.rebuildAccountNameCache();
+            this.lastCacheTime = now;
+        }
+    }
+
+    /**
+     * 重建账户名缓存
+     */
+    private rebuildAccountNameCache(): void {
+        this.accountNameCache.clear();
+        const accounts = this.plugin.accountService.getAccounts();
+        for (const account of accounts) {
+            this.accountNameCache.set(account.fileName, account);
+            if (account.displayName !== account.fileName) {
+                this.accountNameCache.set(account.displayName, account);
+            }
+        }
+    }
+
+    /**
+     * 强制刷新缓存
+     */
+    public invalidateCache(): void {
+        this.lastCacheTime = 0;
+        this.iconCache.clear();
+        this.accountNameCache.clear();
     }
 
     /**
@@ -105,6 +148,7 @@ export class CostMainView extends ItemView {
         setIcon(refreshBtn, "refresh-cw");
         refreshBtn.title = "刷新数据";
         refreshBtn.addEventListener("click", async () => {
+            this.invalidateCache();  // 清除缓存
             await this.plugin.accountService.scanAccounts();
             await this.plugin.transactionService.scanTransactions();
             await this.render();
@@ -1091,30 +1135,52 @@ export class CostMainView extends ItemView {
     }
 
     /**
-     * 渲染自定义图标（从 wiki link 格式解析图片）
+     * 渲染自定义图标（从 wiki link 格式解析图片，带缓存）
      */
     private renderCustomIcon(container: HTMLElement, iconLink: string): void {
+        // 先检查缓存
+        const cachedPath = this.iconCache.get(iconLink);
+        if (cachedPath) {
+            if (cachedPath === "__default__") {
+                container.innerHTML = "💰";
+            } else {
+                const img = container.createEl("img", { cls: "cost-account-custom-icon" });
+                img.src = cachedPath;
+            }
+            return;
+        }
+        
         const match = iconLink.match(/\[\[(.+?)\]\]/);
         if (match && match[1]) {
             const fileName: string = match[1];
-            const files = this.app.vault.getFiles();
-            const imageFile = files.find(f => f.name === fileName || f.path.endsWith(fileName));
+            // 使用 metadataCache 的 getFirstLinkpathDest 更高效
+            const imageFile = this.app.metadataCache.getFirstLinkpathDest(fileName, "");
             if (imageFile) {
+                const resourcePath = this.app.vault.getResourcePath(imageFile);
+                this.iconCache.set(iconLink, resourcePath);  // 缓存
                 const img = container.createEl("img", { cls: "cost-account-custom-icon" });
-                img.src = this.app.vault.getResourcePath(imageFile);
+                img.src = resourcePath;
                 img.alt = fileName;
                 return;
             }
         }
+        this.iconCache.set(iconLink, "__default__");  // 缓存默认值
         container.innerHTML = "💰";
     }
 
     /**
-     * 根据账户名查找账户信息
+     * 根据账户名查找账户信息（使用缓存）
      */
     private findAccountByName(accountName: string): AccountInfo | undefined {
-        const accounts = this.plugin.accountService.getAccounts();
-        return accounts.find(a => a.fileName === accountName || a.displayName === accountName);
+        if (!accountName) return undefined;
+        
+        // 先从缓存查找
+        const cached = this.accountNameCache.get(accountName);
+        if (cached) return cached;
+        
+        // 缓存未命中，重建缓存后再查找
+        this.rebuildAccountNameCache();
+        return this.accountNameCache.get(accountName);
     }
 
     /**
