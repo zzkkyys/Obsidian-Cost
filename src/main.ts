@@ -51,12 +51,16 @@ export default class CostPlugin extends Plugin {
 		this.registerEvent(
 			this.app.metadataCache.on("changed", async (file) => {
 				const cache = this.app.metadataCache.getFileCache(file);
+				let changed = false;
 				if (cache?.frontmatter?.type === "account") {
 					await this.accountService.scanAccounts();
+					changed = true;
 				}
 				if (cache?.frontmatter?.type === "txn") {
 					await this.transactionService.scanTransactions();
+					changed = true;
 				}
+				if (changed) this.refreshViews();
 			})
 		);
 
@@ -65,6 +69,7 @@ export default class CostPlugin extends Plugin {
 			this.app.vault.on("create", async () => {
 				await this.accountService.scanAccounts();
 				await this.transactionService.scanTransactions();
+				this.refreshViews();
 			})
 		);
 
@@ -73,12 +78,14 @@ export default class CostPlugin extends Plugin {
 			this.app.vault.on("delete", async () => {
 				await this.accountService.scanAccounts();
 				await this.transactionService.scanTransactions();
+				this.refreshViews();
 			})
 		);
 
 		// 添加侧边栏图标
 		const ribbonIcon = this.addRibbonIcon("wallet", "打开账户侧边栏", () => {
 			this.activateAccountsSidebar();
+			this.activateMainView();
 		});
 		ribbonIcon.addClass("cost-ribbon-icon");
 
@@ -194,6 +201,24 @@ export default class CostPlugin extends Plugin {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<CostPluginSettings>);
 	}
 
+	async refreshViews() {
+		this.app.workspace.getLeavesOfType(ACCOUNTS_SIDEBAR_VIEW_TYPE).forEach(leaf => {
+			if (leaf.view instanceof AccountsSidebarView) {
+				leaf.view.render();
+			}
+		});
+		this.app.workspace.getLeavesOfType(COST_MAIN_VIEW_TYPE).forEach(leaf => {
+			if (leaf.view instanceof CostMainView) {
+				leaf.view.update();
+			}
+		});
+		// Stats view might need update too
+		this.app.workspace.getLeavesOfType(COST_STATS_VIEW_TYPE).forEach(leaf => {
+			// Assuming stats view has update or render
+			// (leaf.view as any).render?.(); 
+		});
+	}
+
 	async saveSettings() {
 		await this.saveData(this.settings);
 		// 更新服务的目录路径
@@ -202,5 +227,6 @@ export default class CostPlugin extends Plugin {
 		// 重新扫描数据
 		await this.accountService.scanAccounts();
 		await this.transactionService.scanTransactions();
+		this.refreshViews();
 	}
 }

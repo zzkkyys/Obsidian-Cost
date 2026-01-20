@@ -352,4 +352,19 @@ export class TransactionService {
 
         return result;
     }
+    async updateTransaction(file: TFile, data: Partial<TransactionFrontmatter>): Promise<void> {
+        await this.app.fileManager.processFrontMatter(file, (fm) => {
+            // Update fields
+            if (data.date !== undefined) fm.date = data.date;
+            if (data.time !== undefined) fm.time = data.time;
+            if (data.amount !== undefined) fm.amount = data.amount;
+            if (data.txn_type !== undefined) fm.txn_type = data.txn_type;
+            if (data.category !== undefined) fm.category = data.category;
+            if (data.from !== undefined) fm.from = data.from;
+            if (data.to !== undefined) fm.to = data.to;
+            if (data.payee !== undefined) fm.payee = data.payee;
+            if (data.memo !== undefined) fm.memo = data.memo;
+            // Handle complex fields if necessary
+        });
+    }
 }

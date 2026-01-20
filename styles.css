@@ -404,7 +404,13 @@ Obsidian Cost Plugin Styles
 }
 
 .cost-view-content::-webkit-scrollbar {
-	display: none;
+	width: 8px;
+	background-color: transparent;
+}
+
+.cost-view-content::-webkit-scrollbar-thumb {
+	background-color: var(--background-modifier-border);
+	border-radius: 4px;
 }
 
 /* ========================================
@@ -1827,4 +1833,116 @@ Obsidian Cost Plugin Styles
 	.cost-transaction-item {
 		padding: 10px;
 	}
+}
+
+/* New Transaction List Styles */
+.cost-txn-address,
+.cost-txn-memo {
+	font-size: 11px;
+	color: var(--text-muted);
+	margin-left: 8px;
+}
+
+.cost-txn-balance-row {
+	width: 100%;
+	margin-top: 4px;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	font-size: 10px;
+}
+
+.cost-txn-balance-change {
+	background: var(--background-modifier-form-field);
+	padding: 2px 6px;
+	border-radius: 4px;
+	color: var(--text-muted);
+	border: 1px solid var(--background-modifier-border);
+}
+
+.cost-balance-up {
+	color: var(--color-green);
+}
+
+.cost-balance-down {
+	color: var(--color-red);
+}
+
+/* Right Aligned Balances */
+.cost-txn-amount-col {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	margin-left: 12px;
+}
+
+.cost-txn-balance-col-wrapper {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 2px;
+	margin-top: 4px;
+}
+
+.cost-txn-balance-change-right {
+	font-size: 10px;
+	color: var(--text-faint);
+	white-space: nowrap;
+}
+
+/* Edit Modal */
+.cost-modal-header-actions {
+	position: absolute;
+	right: 50px;
+	top: 12px;
+}
+
+/* Combo Input Styles */
+.cost-input-group {
+	display: flex;
+	align-items: center;
+	gap: 0 !important;
+	/* Override potential default gap */
+}
+
+.cost-input-group input[type="text"] {
+	border-top-right-radius: 0;
+	border-bottom-right-radius: 0;
+	flex: 1;
+}
+
+.cost-combo-btn {
+	border-top-left-radius: 0;
+	border-bottom-left-radius: 0;
+	border-left: none;
+	height: 30px;
+	width: 30px;
+	flex-shrink: 0;
+	padding: 0;
+	background: var(--background-modifier-form-field);
+	border: 1px solid var(--background-modifier-border);
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--text-muted);
+}
+
+
+.cost-combo-btn:hover {
+	background: var(--background-modifier-hover);
+}
+
+/* Transaction List Account Icons */
+.cost-txn-account-icon-small {
+	margin-right: 4px;
+	display: inline-flex;
+	align-items: center;
+	vertical-align: middle;
+}
+
+.cost-txn-account-icon-small img.cost-account-custom-icon-img {
+	width: 14px;
+	height: 14px;
+	object-fit: contain;
 }
