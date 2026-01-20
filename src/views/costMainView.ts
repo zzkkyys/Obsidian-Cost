@@ -5,11 +5,11 @@ import { TransactionInfo } from "../services/transactionService";
 
 export const COST_MAIN_VIEW_TYPE = "cost-main-view";
 
-type TabType = "transactions" | "accounts";
+type TabType = "transactions" | "accounts" | "stats";
 
 /**
  * 记账主视图
- * 包含两个子页：交易列表和账户列表
+ * 包含三个子页：交易列表、账户列表和统计
  */
 export class CostMainView extends ItemView {
     private plugin: CostPlugin;
@@ -95,6 +95,8 @@ export class CostMainView extends ItemView {
             await this.renderTransactionsTab(content);
         } else if (this.currentTab === "accounts") {
             await this.renderAccountsTab(content);
+        } else if (this.currentTab === "stats") {
+            await this.renderStatsTab(content);
         }
     }
 
@@ -160,6 +162,17 @@ export class CostMainView extends ItemView {
             this.render();
         });
 
+        // 统计标签
+        const statsTab = tabBar.createDiv({
+            cls: `cost-tab ${this.currentTab === "stats" ? "is-active" : ""}`
+        });
+        statsTab.createSpan({ text: "统计" });
+        statsTab.addEventListener("click", () => {
+            this.currentTab = "stats";
+            this.selectedAccount = null;
+            this.render();
+        });
+
         // 添加交易按钮
         const addTxnBtn = tabBar.createDiv({ cls: "cost-tab-action" });
         setIcon(addTxnBtn, "plus");
@@ -220,6 +233,29 @@ export class CostMainView extends ItemView {
         for (const [date, txns] of grouped) {
             this.renderDateGroupWithBalances(rightCol, date, txns, allRunningBalances);
         }
+    }
+
+    /**
+     * 渲染统计标签页
+     */
+    private async renderStatsTab(container: HTMLElement): Promise<void> {
+        const transactions = this.plugin.transactionService.getTransactions();
+        const accounts = this.plugin.accountService.getAccounts();
+
+        // 设置容器样式
+        container.style.display = "flex";
+        container.style.flexDirection = "column";
+        container.style.gap = "16px";
+        container.style.padding = "10px";
+
+        // 1. 资产汇总卡片
+        this.renderBalanceSummary(container, accounts);
+
+        // 2. 迷你日历
+        this.renderMiniCalendar(container);
+
+        // 3. 分类消费统计
+        this.renderCategoryStats(container, transactions);
     }
 
     /**

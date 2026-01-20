@@ -6,6 +6,7 @@ import { AccountSuggester } from "./suggesters/accountSuggester";
 import { registerPropertyWidgets } from "./widgets/propertyWidget";
 import { AccountsSidebarView, ACCOUNTS_SIDEBAR_VIEW_TYPE } from "./views/accountsSidebarView";
 import { CostMainView, COST_MAIN_VIEW_TYPE } from "./views/costMainView";
+import { CostStatsView, COST_STATS_VIEW_TYPE } from "./views/costStatsView";
 
 export default class CostPlugin extends Plugin {
 	settings: CostPluginSettings;
@@ -28,13 +29,17 @@ export default class CostPlugin extends Plugin {
 			COST_MAIN_VIEW_TYPE,
 			(leaf) => new CostMainView(leaf, this)
 		);
+		this.registerView(
+			COST_STATS_VIEW_TYPE,
+			(leaf) => new CostStatsView(leaf, this)
+		);
 
 		// 等待 metadata 缓存准备好后扫描数据
 		this.app.workspace.onLayoutReady(async () => {
 			const accounts = await this.accountService.scanAccounts();
 			const transactions = await this.transactionService.scanTransactions();
 			console.log("[Cost Plugin] 扫描到账户:", accounts.length, "交易:", transactions.length);
-			
+
 			// 注册 Properties 面板的账户建议（用于 Live Preview 模式）
 			registerPropertyWidgets(this.app, this.accountService);
 		});
@@ -106,12 +111,21 @@ export default class CostPlugin extends Plugin {
 				this.activateMainView();
 			},
 		});
+
+		this.addCommand({
+			id: "open-stats-view",
+			name: "打开账本统计",
+			callback: () => {
+				this.activateStatsView();
+			},
+		});
 	}
 
 	onunload() {
 		// 关闭视图
 		this.app.workspace.detachLeavesOfType(ACCOUNTS_SIDEBAR_VIEW_TYPE);
 		this.app.workspace.detachLeavesOfType(COST_MAIN_VIEW_TYPE);
+		this.app.workspace.detachLeavesOfType(COST_STATS_VIEW_TYPE);
 	}
 
 	/**
@@ -150,6 +164,25 @@ export default class CostPlugin extends Plugin {
 			leaf = workspace.getLeaf("tab");
 			await leaf.setViewState({
 				type: COST_MAIN_VIEW_TYPE,
+				active: true,
+			});
+		}
+
+		workspace.revealLeaf(leaf);
+	}
+
+	/**
+	 * 激活统计视图
+	 */
+	async activateStatsView(): Promise<void> {
+		const { workspace } = this.app;
+
+		let leaf = workspace.getLeavesOfType(COST_STATS_VIEW_TYPE)[0];
+
+		if (!leaf) {
+			leaf = workspace.getLeaf("tab");
+			await leaf.setViewState({
+				type: COST_STATS_VIEW_TYPE,
 				active: true,
 			});
 		}

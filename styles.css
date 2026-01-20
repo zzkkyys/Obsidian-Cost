@@ -1615,3 +1615,42 @@ Obsidian Cost Plugin Styles
 .cost-modal-btn-primary:hover {
 	opacity: 0.9;
 }
+
+/* ========================================
+   移动端已适配
+   ======================================== */
+
+@media screen and (max-width: 768px) {
+
+	/* 在主视图中隐藏左侧栏（统计/日历） */
+	.cost-txn-left-col {
+		display: none !important;
+	}
+
+	/* 右侧交易列表占满宽度 */
+	.cost-txn-layout {
+		flex-direction: column;
+	}
+
+	.cost-txn-right-col {
+		width: 100%;
+		flex: 1;
+	}
+
+	/* 统计视图（单独的新视图）样式调整 */
+	.cost-stats-view .cost-balance-summary-card,
+	.cost-stats-view .cost-mini-calendar,
+	.cost-stats-view .cost-category-stats {
+		width: 100%;
+		margin-bottom: 12px;
+	}
+
+	/* 调整字体大小和间距以便在小屏幕更紧凑 */
+	.cost-summary-amount {
+		font-size: 20px;
+	}
+
+	.cost-tab {
+		padding: 10px 12px;
+	}
+}
