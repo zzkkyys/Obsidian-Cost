@@ -1,6 +1,7 @@
+import { App } from "obsidian";
 import { BaseComponent } from '../BaseComponent';
 import { AccountInfo } from '../../types';
-import { TransactionService } from '../../services/transactionService'; // We might need this for transaction counts if not passed in
+import { TransactionService } from '../../services/transactionService';
 import { formatThousands } from '../../utils/format';
 
 export interface AccountListOptions {
@@ -9,20 +10,22 @@ export interface AccountListOptions {
 }
 
 export class AccountList extends BaseComponent {
+    private app: App;
     private accounts: AccountInfo[];
     private options: AccountListOptions;
-    // We can pass transaction counts map to avoid dependency on Service
     private transactionCounts: Map<string, number>;
     private balances: Map<string, number>;
 
     constructor(
         containerEl: HTMLElement,
+        app: App,
         accounts: AccountInfo[],
         transactionCounts: Map<string, number>,
         balances: Map<string, number>,
         options: AccountListOptions = {}
     ) {
         super(containerEl);
+        this.app = app;
         this.accounts = accounts;
         this.transactionCounts = transactionCounts;
         this.balances = balances;
@@ -40,7 +43,7 @@ export class AccountList extends BaseComponent {
             "cash": "现金", "investment": "投资账户", "prepaid": "预付卡", "other": "其他"
         };
 
-        const list = container.createDiv({ cls: "cost-accounts-col-list" }); // Reusing existing class
+        const list = container.createDiv({ cls: "cost-accounts-col-list" });
 
         for (const kind of order) {
             if (grouped.has(kind)) {
@@ -81,8 +84,9 @@ export class AccountList extends BaseComponent {
         const isSelected = this.options.selectedAccount?.fileName === account.fileName;
         const item = container.createDiv({ cls: `cost-account-list-item ${isSelected ? "is-selected" : ""}` });
 
-        // Icon (skip custom icon logic for brevity, assume default)
-        item.createDiv({ cls: "cost-account-list-icon", text: "💳" });
+        // Icon
+        const iconEl = item.createDiv({ cls: "cost-account-list-icon" });
+        this.renderAccountIcon(iconEl, account);
 
         const info = item.createDiv({ cls: "cost-account-list-info" });
         info.createDiv({ cls: "cost-account-list-name", text: account.displayName });
@@ -98,6 +102,32 @@ export class AccountList extends BaseComponent {
         item.addEventListener("click", () => {
             this.options.onAccountClick?.(account);
         });
+    }
+
+    private renderAccountIcon(container: HTMLElement, account: AccountInfo): void {
+        const icon = account.icon;
+        if (icon) {
+            const match = icon.match(/\[\[(.+?)\]\]/);
+            if (match && match[1]) {
+                const fileName = match[1];
+                const imageFile = this.app.metadataCache.getFirstLinkpathDest(fileName, "");
+                if (imageFile) {
+                    const resourcePath = this.app.vault.getResourcePath(imageFile);
+                    const img = container.createEl("img", { cls: "cost-account-custom-icon-img" });
+                    img.src = resourcePath;
+                    return;
+                }
+            } else if (!icon.includes("[[")) {
+                container.setText(icon);
+                return;
+            }
+        }
+
+        const icons: Record<string, string> = {
+            "bank": "🏦", "cash": "💵", "credit": "💳", "investment": "📈",
+            "wallet": "👛", "prepaid": "🎫", "other": "💰", "alipay": "🔷", "wechat": "🟢"
+        };
+        container.setText(icons[account.accountKind || "other"] || icons["other"] || "💰");
     }
 
     private groupAccountsByKind(accounts: AccountInfo[]): Map<string, AccountInfo[]> {

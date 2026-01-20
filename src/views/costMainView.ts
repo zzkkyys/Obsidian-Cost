@@ -99,7 +99,7 @@ export class CostMainView extends ItemView {
         setIcon(addBtn, "plus");
         addBtn.onclick = () => {
             // 触发命令打开模态框
-            (this.app as any).commands.executeCommandById("obsidian-cost:create-transaction");
+            (this.app as any).commands.executeCommandById(this.plugin.manifest.id + ":create-transaction");
         };
 
         const refreshBtn = tabBar.createDiv({ cls: "cost-tab-refresh" });
@@ -156,7 +156,7 @@ export class CostMainView extends ItemView {
         });
 
         // Account List
-        new AccountList(leftCol, accounts, itemCounts, balances, {
+        new AccountList(leftCol, this.app, accounts, itemCounts, balances, {
             selectedAccount: this.selectedAccount,
             onAccountClick: (acc) => {
                 this.selectedAccount = acc;

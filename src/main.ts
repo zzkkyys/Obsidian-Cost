@@ -1,7 +1,8 @@
 import { Notice, Plugin } from "obsidian";
 import { DEFAULT_SETTINGS, CostPluginSettings, CostSettingTab } from "./settings";
 import { AccountService } from "./services/accountService";
-import { TransactionService } from "./services/transactionService";
+import { TransactionService, TransactionInfo } from "./services/transactionService";
+import { TransactionEditModal } from "./modals/TransactionEditModal";
 import { AccountSuggester } from "./suggesters/accountSuggester";
 import { registerPropertyWidgets } from "./widgets/propertyWidget";
 import { AccountsSidebarView, ACCOUNTS_SIDEBAR_VIEW_TYPE } from "./views/accountsSidebarView";
@@ -124,6 +125,39 @@ export default class CostPlugin extends Plugin {
 			name: "打开账本统计",
 			callback: () => {
 				this.activateStatsView();
+			},
+		});
+
+		this.addCommand({
+			id: "create-transaction",
+			name: "新建交易",
+			callback: async () => {
+				const file = await this.transactionService.createTransaction();
+				// Mock info for new file
+				const txn: TransactionInfo = {
+					path: file.path,
+					fileName: file.basename,
+					uid: "",
+					date: new Date().toISOString().split("T")[0] || "",
+					time: (new Date().toTimeString().split(" ")[0] || "00:00:00").substring(0, 5),
+					txnType: "支出",
+					category: "",
+					amount: 0,
+					refund: 0,
+					currency: "CNY",
+					from: "",
+					to: "",
+					payee: "",
+					address: "",
+					memo: "",
+					note: "",
+					persons: []
+				};
+
+				new TransactionEditModal(this.app, txn, this.transactionService, this.accountService, async () => {
+					await this.transactionService.scanTransactions();
+					this.refreshViews();
+				}).open();
 			},
 		});
 	}

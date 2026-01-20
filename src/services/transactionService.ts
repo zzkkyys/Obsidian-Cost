@@ -367,4 +367,33 @@ export class TransactionService {
             // Handle complex fields if necessary
         });
     }
+
+    async createTransaction(): Promise<TFile> {
+        let folder = this.app.vault.getAbstractFileByPath(this.transactionsPath);
+        if (!folder || !(folder instanceof TFolder)) {
+            await this.app.vault.createFolder(this.transactionsPath);
+        }
+
+        const now = new Date();
+        const dateStr = now.toISOString().split("T")[0];
+        const timeStr = (now.toTimeString().split(" ")[0] || "00:00:00").substring(0, 5);
+        const uid = Date.now().toString();
+
+        const fileName = `txn-${uid}.md`;
+        const content = `---
+uid: ${uid}
+date: ${dateStr}
+time: ${timeStr}
+txn_type: 支出
+amount: 0
+category: 
+from: 
+to: 
+payee: 
+memo: 
+type: txn
+---`;
+
+        return await this.app.vault.create(`${this.transactionsPath}/${fileName}`, content);
+    }
 }
