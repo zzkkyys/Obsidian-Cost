@@ -64,6 +64,8 @@ export class TransactionList extends BaseComponent {
         return this.accountMap.get(name);
     }
 
+    private renderLimit = 50;
+
     protected render(): void {
         const listContainer = this.containerEl.createDiv({ cls: "cost-transactions-list-container" });
 
@@ -72,9 +74,12 @@ export class TransactionList extends BaseComponent {
             return;
         }
 
+        // Apply Limit
+        const displayTxns = this.transactions.slice(0, this.renderLimit);
+
         // Group by Date
         const grouped = new Map<string, TransactionInfo[]>();
-        for (const txn of this.transactions) {
+        for (const txn of displayTxns) {
             const date = txn.date || "未知日期";
             if (!grouped.has(date)) {
                 grouped.set(date, []);
@@ -83,12 +88,21 @@ export class TransactionList extends BaseComponent {
         }
 
         // Render Groups
-        let groupsRendered = 0;
         try {
             for (const [date, txns] of grouped) {
                 this.renderDateGroup(listContainer, date, txns);
-                groupsRendered++;
             }
+
+            // Load More Button
+            if (this.transactions.length > this.renderLimit) {
+                const loadMoreBtn = listContainer.createDiv({ cls: "cost-load-more" });
+                loadMoreBtn.setText(`加载更多 (${this.transactions.length - this.renderLimit} 条)`);
+                loadMoreBtn.onclick = () => {
+                    this.renderLimit += 50;
+                    this.update(); // Re-render with new limit
+                };
+            }
+
         } catch (e) {
             console.error("[Cost] Render error:", e);
             listContainer.createDiv({ cls: "cost-error-message", text: `渲染错误: ${e}` });
