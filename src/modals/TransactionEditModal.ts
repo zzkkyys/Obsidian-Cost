@@ -150,6 +150,47 @@ export class TransactionEditModal extends Modal {
             };
         };
 
+        // Helper for multi-value suggests (append)
+        const addMultiComboInput = (container: HTMLElement, name: string, initialValue: string, options: string[], onChange: (v: string) => void) => {
+            const setting = new Setting(container).setName(name);
+            const textComp = new TextComponent(setting.controlEl);
+            textComp.setValue(initialValue);
+            textComp.onChange(onChange);
+
+            textComp.inputEl.onclick = (e) => {
+                if (options.length === 0) {
+                    new Notice(`没有可选的${name}`);
+                    return;
+                }
+                const menu = new Menu();
+                options.forEach(opt => {
+                    menu.addItem(item => item
+                        .setTitle(opt)
+                        .onClick(() => {
+                            // Logic: if value ends with comma, append. Else replace? 
+                            // User wants simple selection. For "Persons", usually distinct.
+                            // Let's simplified: If empty, set. If not empty, append ", opt"
+                            const current = textComp.getValue().trim();
+                            let newValue = opt;
+                            if (current) {
+                                // Check if already exists to avoid dup
+                                const parts = current.split(/[,，]\s*/);
+                                if (!parts.includes(opt)) {
+                                    newValue = current + ", " + opt;
+                                } else {
+                                    newValue = current;
+                                }
+                            }
+                            textComp.setValue(newValue);
+                            onChange(newValue);
+                        })
+                    );
+                });
+                const rect = textComp.inputEl.getBoundingClientRect();
+                menu.showAtPosition({ x: rect.left, y: rect.bottom });
+            };
+        };
+
         addComboInput(contentEl, "分类", category, categories, (v) => category = v, true);
         addComboInput(contentEl, "来源账户", from, accounts, (v) => from = v);
         addComboInput(contentEl, "目标账户", to, accounts, (v) => to = v);
@@ -158,6 +199,17 @@ export class TransactionEditModal extends Modal {
             .setName("商家/收款人")
             .addText(text => text.setValue(payee).onChange(v => payee = v));
 
+        // Address
+        const addresses = Array.from(new Set(this.service.getTransactions().map(t => (t as any).address).filter((c: string) => c && c.trim() !== ''))).sort() as string[];
+        addComboInput(contentEl, "地址", this.txn.address || "", addresses, (v) => (this.txn as any).address = v);
+
+        // Persons
+        const personsList = Array.from(new Set(this.service.getTransactions().flatMap(t => t.persons || []).filter(c => c && c.trim() !== ''))).sort();
+        const initialPersons = (this.txn.persons || []).join(", ");
+        // We need a local var for persons string to pass to save
+        let personsStr = initialPersons;
+        addMultiComboInput(contentEl, "参与人", initialPersons, personsList, (v) => personsStr = v);
+
         new Setting(contentEl)
             .setName("备注")
             .addTextArea(text => text.setValue(memo).onChange(v => memo = v));
@@ -165,6 +217,9 @@ export class TransactionEditModal extends Modal {
         const btnDiv = contentEl.createDiv({ cls: "cost-modal-buttons" });
         const saveBtn = btnDiv.createEl("button", { text: "保存", cls: "mod-cta" });
         saveBtn.onclick = async () => {
+            // Parse persons string to array
+            const personsArray = personsStr.split(/[,，]/).map(s => s.trim()).filter(s => s.length > 0);
+
             await this.service.updateTransaction(this.file, {
                 date,
                 amount,
@@ -173,8 +228,10 @@ export class TransactionEditModal extends Modal {
                 from,
                 to,
                 payee,
-                memo
-            });
+                memo,
+                persons: personsArray,
+                address: (this.txn as any).address // we updated this.txn.address directly above via callback, reusing it
+            } as any); // cast any for custom fields logic inside updateTransaction
             this.onSave?.();
             this.close();
         };

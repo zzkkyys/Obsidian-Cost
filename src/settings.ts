@@ -8,12 +8,15 @@ export interface CostPluginSettings {
 	accountsPath: string;
 	/** Transactions 文件夹路径 */
 	transactionsPath: string;
+	/** 自定义图标文件夹路径 */
+	customIconPath: string;
 }
 
 export const DEFAULT_SETTINGS: CostPluginSettings = {
 	financePath: "Finance",
 	accountsPath: "Finance/Accounts",
 	transactionsPath: "Finance/Transactions",
+	customIconPath: "Finance/Icons"
 };
 
 export class CostSettingTab extends PluginSettingTab {
@@ -66,6 +69,19 @@ export class CostSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.transactionsPath)
 					.onChange(async (value) => {
 						this.plugin.settings.transactionsPath = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("自定义图标文件夹路径")
+			.setDesc("存放自定义分类图标的目录 (e.g. 餐饮.png, 餐饮-早餐.png)")
+			.addText((text) =>
+				text
+					.setPlaceholder("Finance/Icons")
+					.setValue(this.plugin.settings.customIconPath)
+					.onChange(async (value) => {
+						this.plugin.settings.customIconPath = value;
 						await this.plugin.saveSettings();
 					})
 			);

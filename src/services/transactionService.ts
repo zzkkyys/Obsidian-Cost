@@ -364,6 +364,8 @@ export class TransactionService {
             if (data.to !== undefined) fm.to = data.to;
             if (data.payee !== undefined) fm.payee = data.payee;
             if (data.memo !== undefined) fm.memo = data.memo;
+            if (data.address !== undefined) (fm as any).address = data.address;
+            if (data.persons !== undefined) fm.persons = data.persons;
             // Handle complex fields if necessary
         });
     }
@@ -390,6 +392,8 @@ category:
 from: 
 to: 
 payee: 
+address: 
+persons: []
 memo: 
 type: txn
 ---`;

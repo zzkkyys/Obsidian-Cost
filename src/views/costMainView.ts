@@ -135,7 +135,8 @@ export class CostMainView extends ItemView {
                     this.plugin.refreshViews();
                 }).open();
             },
-            onAccountClick: (name, field, txn) => this.handleAccountClick(name)
+            onAccountClick: (name, field, txn) => this.handleAccountClick(name),
+            customIconPath: this.plugin.settings.customIconPath
         }).mount();
     }
 

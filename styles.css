@@ -2124,3 +2124,30 @@ Obsidian Cost Plugin Styles
 	color: var(--text-normal);
 	border-color: var(--interactive-accent);
 }
+
+/* Transaction List Icons (SVG) */
+.cost-txn-icon {
+	width: 36px;
+	height: 36px;
+	border-radius: 12px;
+	background-color: var(--background-secondary-alt);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-right: 12px;
+	flex-shrink: 0;
+	color: var(--text-muted);
+}
+
+.cost-txn-icon svg {
+	width: 20px;
+	height: 20px;
+	stroke-width: 2px;
+}
+
+.cost-txn-icon-img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	border-radius: 12px;
+}

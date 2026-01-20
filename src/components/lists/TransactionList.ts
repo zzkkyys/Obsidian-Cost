@@ -9,6 +9,7 @@ export interface TransactionListOptions {
     onAccountClick?: (accountName: string, field: 'from' | 'to', txn: TransactionInfo) => void;
     onDateClick?: (txn: TransactionInfo) => void;
     onTimeClick?: (txn: TransactionInfo) => void;
+    customIconPath?: string;
 }
 
 export class TransactionList extends BaseComponent {
@@ -145,8 +146,70 @@ export class TransactionList extends BaseComponent {
         const item = container.createDiv({ cls: `cost-transaction-item cost-txn-${txn.txnType}` });
 
         // Category Icon
+        // Category Icon
         const iconEl = item.createDiv({ cls: "cost-txn-icon" });
-        iconEl.setText(this.getCategoryIcon(txn.category));
+        const iconName = this.getCategoryIcon(txn.category, txn.txnType);
+
+        // 1. Check for custom image first (if category is set)
+        let hasCustomImage = false;
+        if (txn.category && this.options.customIconPath) {
+            const catKey = (String(txn.category || "")).trim();
+            if (catKey) {
+                // Try exact match first: "Food/Breakfast" -> "Food-Breakfast.png" or "Food/Breakfast.png" (but file sys usually flat for icons?)
+                // User said: "A/B -> A-B.png"
+                // Clean path: replace / with -
+                const cleanName = catKey.replace(/\//g, "-");
+
+                // We need to look up in metadataCache if file exists
+                // Assuming icons are in 'customIconPath'
+
+                // Try png, jpg, jpeg, svg
+                const extensions = ["png", "jpg", "jpeg", "svg", "webp"];
+                let foundFile: TFile | null = null;
+
+                // Try:
+                // 1. Full name with dash: "Food-Breakfast" (cleanName)
+                // 2. Parent category: "Food" (parts[0])
+                // 3. Leaf name: "Breakfast" (parts.last())
+                const parts = catKey.split("/");
+                const parent = parts.length > 1 ? parts[0] : null;
+                const leaf = parts.length > 0 ? parts[parts.length - 1] : null;
+
+                const namesToTry = [cleanName];
+                // Prioritize leaf over parent as per latest request
+                if (leaf && leaf !== cleanName && leaf !== parent) namesToTry.push(leaf);
+                if (parent && parent !== cleanName) namesToTry.push(parent);
+
+                for (const name of namesToTry) {
+                    if (!name) continue;
+                    for (const ext of extensions) {
+                        const path = `${this.options.customIconPath}/${name}.${ext}`;
+                        const file = this.app.vault.getAbstractFileByPath(path);
+                        if (file instanceof TFile) {
+                            foundFile = file;
+                            break;
+                        }
+                    }
+                    if (foundFile) break;
+                }
+
+                if (foundFile) {
+                    const img = iconEl.createEl("img");
+                    img.src = this.app.vault.getResourcePath(foundFile);
+                    img.addClass("cost-txn-icon-img");
+                    hasCustomImage = true;
+                }
+            }
+        }
+
+        if (!hasCustomImage) {
+            try {
+                setIcon(iconEl, iconName);
+            } catch (e) {
+                // Fallback if icon not found or setIcon fails
+                iconEl.setText("💰");
+            }
+        }
 
         // Info Column
         const infoEl = item.createDiv({ cls: "cost-txn-info" });
@@ -291,9 +354,58 @@ export class TransactionList extends BaseComponent {
         }
     }
 
-    private getCategoryIcon(category: string): string {
-        const catStr = String(category || "");
-        if (!catStr) return "📝";
-        return catStr.substring(0, 1);
+    private getCategoryIcon(category: string, txnType: string): string {
+        const cat = String(category || "").split("/")[0] || ""; // Ensure string
+        return TransactionList.CATEGORY_ICONS[cat] ||
+            (txnType === "转账" ? "arrow-right-left" :
+                (txnType === "还款" ? "credit-card" :
+                    (txnType === "收入" ? "banknote" : "circle-dollar-sign")));
     }
+
+    private static CATEGORY_ICONS: Record<string, string> = {
+        "餐饮": "utensils",
+        "美食": "utensils",
+        "吃饭": "utensils",
+        "交通": "bus",
+        "出行": "bus",
+        "打车": "car",
+        "加油": "fuel",
+        "购物": "shopping-bag",
+        "日用": "shopping-cart",
+        "娱乐": "gamepad-2",
+        "游戏": "gamepad-2",
+        "电影": "film",
+        "居住": "home",
+        "房租": "home",
+        "物业": "building",
+        "医疗": "stethoscope",
+        "药品": "pill",
+        "工资": "banknote",
+        "奖金": "gift",
+        "理财": "trending-up",
+        "股票": "bar-chart-2",
+        "学习": "book-open",
+        "教育": "graduation-cap",
+        "通讯": "smartphone",
+        "网费": "wifi",
+        "人情": "heart-handshake",
+        "红包": "red-envelope", // Not a standard lucide, use gift
+        "礼物": "gift",
+        "运动": "dumbbell",
+        "健身": "dumbbell",
+        "宠物": "cat",
+        "旅行": "plane",
+        "数码": "monitor",
+        "服饰": "shirt",
+        "美容": "scissors",
+        // English fallback
+        "Food": "utensils",
+        "Transport": "bus",
+        "Shopping": "shopping-bag",
+        "Entertainment": "gamepad-2",
+        "Housing": "home",
+        "Medical": "stethoscope",
+        "Salary": "banknote",
+        "Invest": "trending-up"
+    };
 }
