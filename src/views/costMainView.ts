@@ -11,6 +11,9 @@ import { TransactionInfo } from "../services/transactionService";
 
 export const COST_MAIN_VIEW_TYPE = "cost-main-view";
 
+import { TopPayeesWidget } from "../components/dashboard/TopPayeesWidget";
+import { KPICardsWidget } from "../components/dashboard/KPICardsWidget";
+import { AnnualHeatmapWidget } from "../components/dashboard/AnnualHeatmapWidget";
 import { TransactionEditModal } from "../modals/TransactionEditModal";
 
 type TabType = "transactions" | "accounts" | "stats";
@@ -200,7 +203,11 @@ export class CostMainView extends ItemView {
         const balanceSection = container.createDiv({ cls: 'cost-stats-section' });
         new BalanceCard(balanceSection, accounts, transactions).mount();
 
-        // 2. Trends Section
+        // 2. KPI Cards
+        const kpiSection = container.createDiv({ cls: 'cost-stats-section' });
+        new KPICardsWidget(kpiSection, transactions).mount();
+
+        // 3. Trends Section
         const trendsSection = container.createDiv({ cls: 'cost-stats-grid-row' });
 
         const incomeContainer = trendsSection.createDiv({ cls: 'cost-stats-card' });
@@ -213,14 +220,25 @@ export class CostMainView extends ItemView {
         const expenseData = this.calculateTrendData(transactions, '支出');
         new TrendChart(expenseContainer, expenseData, 'var(--color-red)').mount();
 
-        // 3. Bottom Section
+        // 4. Analysis Section (Top Payees + Category)
+        const analysisSection = container.createDiv({ cls: 'cost-stats-grid-row' });
+
+        const topPayeesContainer = analysisSection.createDiv({ cls: 'cost-stats-card' });
+        new TopPayeesWidget(topPayeesContainer, transactions).mount();
+
+        const categoryContainer = analysisSection.createDiv({ cls: 'cost-stats-card' });
+        new CategoryStatsCard(categoryContainer, transactions).mount();
+
+        // 5. Heatmap Section
+        const heatmapSection = container.createDiv({ cls: 'cost-stats-section' });
+        const heatmapContainer = heatmapSection.createDiv({ cls: 'cost-stats-card' });
+        new AnnualHeatmapWidget(heatmapContainer, transactions).mount();
+
+        // 6. Bottom Section
         const bottomSection = container.createDiv({ cls: 'cost-stats-grid-row' });
 
         const calendarContainer = bottomSection.createDiv({ cls: 'cost-stats-card' });
         new CalendarWidget(calendarContainer, transactions).mount();
-
-        const categoryContainer = bottomSection.createDiv({ cls: 'cost-stats-card' });
-        new CategoryStatsCard(categoryContainer, transactions).mount();
     }
 
     private calculateTrendData(transactions: TransactionInfo[], type: '收入' | '支出'): TrendDataPoint[] {
