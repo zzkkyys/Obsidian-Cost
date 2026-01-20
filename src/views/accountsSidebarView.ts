@@ -77,7 +77,7 @@ export class AccountsSidebarView extends ItemView {
         mainSection.createDiv({ cls: "cost-summary-main-label", text: "净资产" });
         const mainValue = mainSection.createDiv({ cls: "cost-summary-main-value" });
         mainValue.createSpan({ cls: "cost-summary-currency", text: "¥" });
-        mainValue.createSpan({ 
+        mainValue.createSpan({
             cls: `cost-summary-amount ${netWorth >= 0 ? "cost-balance-positive" : "cost-balance-negative"}`,
             text: this.formatNumber(Math.abs(netWorth))
         });
@@ -97,23 +97,23 @@ export class AccountsSidebarView extends ItemView {
 
         // 详情区域 - 资产和负债
         const detailSection = summaryCard.createDiv({ cls: "cost-summary-detail" });
-        
+
         // 资产
         const assetItem = detailSection.createDiv({ cls: "cost-summary-detail-item" });
         assetItem.createDiv({ cls: "cost-summary-detail-dot cost-dot-asset" });
         assetItem.createDiv({ cls: "cost-summary-detail-label", text: "资产" });
-        assetItem.createDiv({ 
-            cls: "cost-summary-detail-value", 
-            text: `¥${this.formatNumber(assetsTotal)}` 
+        assetItem.createDiv({
+            cls: "cost-summary-detail-value",
+            text: `¥${this.formatNumber(assetsTotal)}`
         });
 
         // 负债
         const liabilityItem = detailSection.createDiv({ cls: "cost-summary-detail-item" });
         liabilityItem.createDiv({ cls: "cost-summary-detail-dot cost-dot-liability" });
         liabilityItem.createDiv({ cls: "cost-summary-detail-label", text: "负债" });
-        liabilityItem.createDiv({ 
-            cls: "cost-summary-detail-value", 
-            text: `¥${this.formatNumber(liabilitiesTotal)}` 
+        liabilityItem.createDiv({
+            cls: "cost-summary-detail-value",
+            text: `¥${this.formatNumber(liabilitiesTotal)}`
         });
     }
 
@@ -122,6 +122,14 @@ export class AccountsSidebarView extends ItemView {
      */
     private formatNumber(num: number): string {
         return num.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    /**
+     * 规范化余额（避免 -0 的情况）
+     */
+    private normalizeBalance(balance: number): number {
+        // 如果余额的绝对值小于 0.01，视为 0
+        return Math.abs(balance) < 0.01 ? 0 : balance;
     }
 
     /**
@@ -233,11 +241,12 @@ export class AccountsSidebarView extends ItemView {
         for (const account of accounts) {
             totalBalance += this.calculateBalance(account);
         }
+        totalBalance = this.normalizeBalance(totalBalance);
         const totalEl = groupHeader.createSpan({ cls: "cost-account-group-total" });
         totalEl.setText(this.formatNumber(totalBalance));
-        if (totalBalance >= 0) {
+        if (totalBalance > 0) {
             totalEl.addClass("cost-balance-positive");
-        } else {
+        } else if (totalBalance < 0) {
             totalEl.addClass("cost-balance-negative");
         }
 
@@ -253,7 +262,7 @@ export class AccountsSidebarView extends ItemView {
      */
     private renderAccountItem(container: HTMLElement, account: AccountInfo): void {
         const item = container.createDiv({ cls: "cost-account-item" });
-        
+
         // 账户图标（优先使用自定义图标）
         const iconEl = item.createDiv({ cls: "cost-account-icon" });
         if (account.icon) {
@@ -264,7 +273,7 @@ export class AccountsSidebarView extends ItemView {
 
         // 账户信息
         const infoEl = item.createDiv({ cls: "cost-account-info" });
-        
+
         const nameEl = infoEl.createDiv({ cls: "cost-account-name" });
         nameEl.setText(account.displayName);
 
@@ -275,12 +284,13 @@ export class AccountsSidebarView extends ItemView {
         }
 
         // 余额
-        const balance = this.calculateBalance(account);
+        const balance = this.normalizeBalance(this.calculateBalance(account));
         const balanceEl = item.createDiv({ cls: "cost-account-balance" });
         balanceEl.setText(`${this.formatNumber(balance)} ${account.currency}`);
-        if (balance >= 0) {
+        // 余额为0时不添加颜色类，显示为默认黑色
+        if (balance > 0) {
             balanceEl.addClass("cost-balance-positive");
-        } else {
+        } else if (balance < 0) {
             balanceEl.addClass("cost-balance-negative");
         }
 
@@ -347,7 +357,7 @@ export class AccountsSidebarView extends ItemView {
             }
             return;
         }
-        
+
         // 解析 [[filename.png]] 格式
         const match = iconLink.match(/\[\[(.+?)\]\]/);
         if (match && match[1]) {

@@ -1617,6 +1617,139 @@ Obsidian Cost Plugin Styles
 }
 
 /* ========================================
+   收支趋势图
+   ======================================== */
+
+.cost-trend-chart {
+	width: 100%;
+	/* 移除背景、边框和 padding，由 cost-widget 统一管理 */
+}
+
+.cost-trend-chart-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 12px;
+}
+
+.cost-trend-chart-title {
+	font-weight: 600;
+	font-size: 14px;
+	color: var(--text-normal);
+}
+
+.cost-trend-chart-container {
+	width: 100%;
+}
+
+.cost-line-chart {
+	width: 100%;
+	height: 100%;
+	/* 自适应高度 */
+}
+
+.cost-trend-chart-empty {
+	text-align: center;
+	padding: 40px 20px;
+	color: var(--text-muted);
+	font-size: 13px;
+}
+
+/* ========================================
+   可拖拽 Widget 系统
+   ======================================== */
+
+/* ========================================
+   统计视图网格布局 (静态)
+   ======================================== */
+
+.cost-stats-view {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	padding: 20px;
+	max-width: 1200px;
+	margin: 0 auto;
+}
+
+.cost-stats-section {
+	width: 100%;
+}
+
+.cost-stats-grid-row {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 16px;
+	width: 100%;
+}
+
+.cost-stats-card {
+	background: var(--background-primary);
+	border-radius: 8px;
+	padding: 16px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	transition: box-shadow 0.2s;
+	overflow: hidden;
+}
+
+.cost-stats-card:hover {
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* 移动端适配：网格变为单列 */
+@media (max-width: 768px) {
+	.cost-stats-grid-row {
+		grid-template-columns: 1fr;
+	}
+}
+
+/* ========================================
+   时间范围选择器（内联按钮）
+   ======================================== */
+
+.cost-time-range-btn-group-inline {
+	display: flex;
+	gap: 4px;
+	margin-left: auto;
+}
+
+.cost-time-range-btn-inline {
+	padding: 4px 10px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	color: var(--text-muted);
+	border-radius: 4px;
+	cursor: pointer;
+	transition: all 0.2s;
+	font-size: 11px;
+}
+
+.cost-time-range-btn-inline:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+	border-color: var(--interactive-accent);
+}
+
+.cost-time-range-btn-inline.active {
+	background: var(--interactive-accent);
+	color: white;
+	border-color: var(--interactive-accent);
+}
+
+.cost-trend-chart-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 12px;
+}
+
+/* 移除旧的时间范围选择器样式 */
+.cost-time-range-selector,
+.cost-time-range-widget {
+	display: none;
+}
+
+/* ========================================
    移动端已适配
    ======================================== */
 
@@ -1652,5 +1785,46 @@ Obsidian Cost Plugin Styles
 
 	.cost-tab {
 		padding: 10px 12px;
+	}
+
+	/* 交易卡片调整为3行布局 */
+	.cost-txn-info {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	/* 第1行：分类 + 商家（地址移到第3行） */
+	.cost-txn-top-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		align-items: center;
+	}
+
+	/* 地址单独成行 */
+	.cost-txn-address {
+		display: block !important;
+		width: 100%;
+		margin-top: 2px;
+	}
+
+	/* 第2行：日期 + 时间 + 账户 */
+	.cost-txn-bottom-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		font-size: 12px;
+	}
+
+	/* 备注和余额变动如果太长会自动换行 */
+	.cost-txn-note,
+	.cost-txn-balance-change {
+		flex-basis: 100%;
+	}
+
+	/* 调整交易卡片内边距 */
+	.cost-transaction-item {
+		padding: 10px;
 	}
 }

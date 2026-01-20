@@ -3,6 +3,7 @@ import CostPlugin from "../main";
 import { AccountInfo } from "../types";
 import { TransactionInfo } from "../services/transactionService";
 
+
 export const COST_MAIN_VIEW_TYPE = "cost-main-view";
 
 type TabType = "transactions" | "accounts" | "stats";
@@ -25,6 +26,11 @@ export class CostMainView extends ItemView {
     private statsYear: number = new Date().getFullYear();
     private statsMonth: number = new Date().getMonth();  // 0-11
 
+    // 趋势图时间范围状态
+    private trendTimeRange: 'all' | 'year' | 'half' = 'half';
+
+
+
     // 性能优化：缓存
     private iconCache: Map<string, string> = new Map();  // icon link -> resource path
     private accountNameCache: Map<string, AccountInfo> = new Map();  // account name -> account info
@@ -46,6 +52,14 @@ export class CostMainView extends ItemView {
     private formatThousands(num: number, fixed = 0): string {
         if (typeof num !== "number" || isNaN(num)) return "0";
         return num.toFixed(fixed).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    /**
+     * 规范化余额（避免 -0 的情况）
+     */
+    private normalizeBalance(balance: number): number {
+        // 如果余额的绝对值小于 0.01，视为 0
+        return Math.abs(balance) < 0.01 ? 0 : balance;
     }
 
     getDisplayText(): string {
@@ -242,21 +256,303 @@ export class CostMainView extends ItemView {
         const transactions = this.plugin.transactionService.getTransactions();
         const accounts = this.plugin.accountService.getAccounts();
 
-        // 设置容器样式
-        container.style.display = "flex";
-        container.style.flexDirection = "column";
-        container.style.gap = "16px";
-        container.style.padding = "10px";
+        container.addClass('cost-stats-view');
 
-        // 1. 资产汇总卡片
-        this.renderBalanceSummary(container, accounts);
+        // 1. 顶部：资产汇总 (全宽)
+        const balanceSection = container.createDiv({ cls: 'cost-stats-section' });
+        this.renderBalanceSummary(balanceSection, accounts);
 
-        // 2. 迷你日历
-        this.renderMiniCalendar(container);
+        // 2. 中部：趋势图 (左右并排)
+        const trendsSection = container.createDiv({ cls: 'cost-stats-grid-row' });
 
-        // 3. 分类消费统计
-        this.renderCategoryStats(container, transactions);
+        // 收入趋势
+        const incomeContainer = trendsSection.createDiv({ cls: 'cost-stats-card' });
+        this.renderIncomeTrendChart(incomeContainer, transactions);
+
+        // 支出趋势
+        const expenseContainer = trendsSection.createDiv({ cls: 'cost-stats-card' });
+        this.renderExpenseTrendChart(expenseContainer, transactions);
+
+        // 3. 底部：日历和分类统计 (左右并排)
+        const bottomSection = container.createDiv({ cls: 'cost-stats-grid-row' });
+
+        // 迷你日历
+        const calendarContainer = bottomSection.createDiv({ cls: 'cost-stats-card' });
+        this.renderMiniCalendar(calendarContainer);
+
+        // 分类统计
+        const categoryContainer = bottomSection.createDiv({ cls: 'cost-stats-card' });
+        this.renderCategoryStats(categoryContainer, transactions);
     }
+
+
+    /**
+     * 渲染时间范围按钮（内联在图表标题中）
+     */
+
+    /**
+     * 渲染时间范围按钮（内联在图表标题中）
+     */
+    private renderTimeRangeButtons(container: HTMLElement): void {
+        const btnGroup = container.createDiv({ cls: 'cost-time-range-btn-group-inline' });
+
+        const ranges: Array<{ value: 'all' | 'year' | 'half'; label: string }> = [
+            { value: 'half', label: '半年' },
+            { value: 'year', label: '本年' },
+            { value: 'all', label: '全部' }
+        ];
+
+        ranges.forEach(range => {
+            const btn = btnGroup.createEl('button', {
+                cls: `cost-time-range-btn-inline ${this.trendTimeRange === range.value ? 'active' : ''}`,
+                text: range.label
+            });
+
+            btn.addEventListener('click', () => {
+                this.trendTimeRange = range.value;
+                // 重新渲染统计视图
+                const container = this.contentEl.querySelector('.cost-view-content');
+                if (container) {
+                    container.empty();
+                    this.renderStatsTab(container as HTMLElement);
+                }
+            });
+        });
+    }
+
+    /**
+     * 根据时间范围过滤交易
+     */
+    private getFilteredTransactionsByTimeRange(transactions: TransactionInfo[]): TransactionInfo[] {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+
+        if (this.trendTimeRange === 'all') {
+            return transactions;
+        } else if (this.trendTimeRange === 'year') {
+            return transactions.filter(txn => {
+                return txn.date.startsWith(String(currentYear));
+            });
+        } else { // half
+            const sixMonthsAgo = new Date(currentYear, currentMonth - 6, 1);
+            const sixMonthsAgoStr = `${sixMonthsAgo.getFullYear()}-${String(sixMonthsAgo.getMonth() + 1).padStart(2, '0')}`;
+
+            return transactions.filter(txn => {
+                return txn.date >= sixMonthsAgoStr;
+            });
+        }
+    }
+
+    /**
+     * 渲染收入趋势图
+     */
+    private renderIncomeTrendChart(container: HTMLElement, transactions: TransactionInfo[]): void {
+        // 添加样式类
+        container.classList.add('cost-trend-chart');
+
+        // 标题和时间范围选择器
+        const header = container.createDiv({ cls: "cost-trend-chart-header" });
+        header.createSpan({ cls: "cost-trend-chart-title", text: "收入趋势" });
+        this.renderTimeRangeButtons(header);
+
+        // 过滤交易
+        const filteredTxns = this.getFilteredTransactionsByTimeRange(transactions);
+
+        // 计算数据
+        const monthlyData = this.calculateMonthlyData(filteredTxns, 'income');
+
+        if (monthlyData.length === 0 || monthlyData.every(d => d.value === 0)) {
+            container.createDiv({ cls: "cost-trend-chart-empty", text: "暂无数据" });
+            return;
+        }
+
+        // 渲染图表
+        const chartContainer = container.createDiv({ cls: "cost-trend-chart-container" });
+        this.renderSingleLineChart(chartContainer, monthlyData, 'var(--color-green)', '收入');
+    }
+
+    /**
+     * 渲染支出趋势图
+     */
+    private renderExpenseTrendChart(container: HTMLElement, transactions: TransactionInfo[]): void {
+        // 添加样式类
+        container.classList.add('cost-trend-chart');
+
+        // 标题和时间范围选择器
+        const header = container.createDiv({ cls: "cost-trend-chart-header" });
+        header.createSpan({ cls: "cost-trend-chart-title", text: "支出趋势" });
+        this.renderTimeRangeButtons(header);
+
+        // 过滤交易
+        const filteredTxns = this.getFilteredTransactionsByTimeRange(transactions);
+
+        // 计算数据
+        const monthlyData = this.calculateMonthlyData(filteredTxns, 'expense');
+
+        if (monthlyData.length === 0 || monthlyData.every(d => d.value === 0)) {
+            container.createDiv({ cls: "cost-trend-chart-empty", text: "暂无数据" });
+            return;
+        }
+
+        // 渲染图表
+        const chartContainer = container.createDiv({ cls: "cost-trend-chart-container" });
+        this.renderSingleLineChart(chartContainer, monthlyData, 'var(--color-red)', '支出');
+    }
+
+    /**
+     * 计算月度数据
+     */
+    private calculateMonthlyData(
+        transactions: TransactionInfo[],
+        type: 'income' | 'expense'
+    ): Array<{ month: string; value: number }> {
+        const now = new Date();
+        const dataMap = new Map<string, number>();
+
+        // 根据时间范围确定月份数量
+        let monthCount = 6;
+        if (this.trendTimeRange === 'year') {
+            monthCount = 12;
+        } else if (this.trendTimeRange === 'all') {
+            // 找到最早的交易日期
+            if (transactions.length > 0) {
+                const firstDate = transactions[0]?.date;
+                if (firstDate) {
+                    const earliestDate = transactions.reduce((earliest, txn) => {
+                        return txn.date < earliest ? txn.date : earliest;
+                    }, firstDate);
+
+                    const earliest = new Date(earliestDate);
+                    const monthsDiff = (now.getFullYear() - earliest.getFullYear()) * 12 +
+                        (now.getMonth() - earliest.getMonth());
+                    monthCount = Math.min(Math.max(monthsDiff + 1, 6), 24); // 最多显示24个月
+                }
+            }
+        }
+
+        // 初始化所有月份为0
+        for (let i = monthCount - 1; i >= 0; i--) {
+            const targetDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const monthStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
+            dataMap.set(monthStr, 0);
+        }
+
+        // 聚合数据
+        for (const txn of transactions) {
+            const monthStr = txn.date.substring(0, 7); // YYYY-MM
+            if (!dataMap.has(monthStr)) continue;
+
+            if (type === 'income' && txn.txnType === '收入') {
+                dataMap.set(monthStr, (dataMap.get(monthStr) || 0) + txn.amount);
+            } else if (type === 'expense' && txn.txnType === '支出') {
+                dataMap.set(monthStr, (dataMap.get(monthStr) || 0) + (txn.amount - txn.refund));
+            }
+        }
+
+        // 转换为数组
+        return Array.from(dataMap.entries())
+            .sort((a, b) => a[0].localeCompare(b[0]))
+            .map(([monthStr, value]) => ({
+                month: monthStr.substring(5) + '月',
+                value
+            }));
+    }
+
+    /**
+     * 渲染单条折线图
+     */
+    private renderSingleLineChart(
+        container: HTMLElement,
+        data: Array<{ month: string; value: number }>,
+        color: string,
+        label: string
+    ): void {
+        const width = 300;
+        const height = 180;
+        const padding = { top: 20, right: 20, bottom: 30, left: 50 };
+        const chartWidth = width - padding.left - padding.right;
+        const chartHeight = height - padding.top - padding.bottom;
+
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+        svg.setAttribute("class", "cost-line-chart");
+
+        // 找到最大值
+        const maxValue = Math.max(...data.map(d => d.value), 100);
+
+        // 绘制网格线和Y轴标签
+        const gridLines = 4;
+        for (let i = 0; i <= gridLines; i++) {
+            const y = padding.top + (chartHeight / gridLines) * i;
+            const value = maxValue * (1 - i / gridLines);
+
+            // 网格线
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", String(padding.left));
+            line.setAttribute("y1", String(y));
+            line.setAttribute("x2", String(width - padding.right));
+            line.setAttribute("y2", String(y));
+            line.setAttribute("stroke", "var(--background-modifier-border)");
+            line.setAttribute("stroke-width", "1");
+            line.setAttribute("opacity", "0.3");
+            svg.appendChild(line);
+
+            // Y轴标签
+            const labelEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            labelEl.setAttribute("x", String(padding.left - 5));
+            labelEl.setAttribute("y", String(y + 4));
+            labelEl.setAttribute("text-anchor", "end");
+            labelEl.setAttribute("font-size", "10");
+            labelEl.setAttribute("fill", "var(--text-muted)");
+            labelEl.textContent = this.formatCompact(value);
+            svg.appendChild(labelEl);
+        }
+
+        // 绘制折线
+        const points = data.map((d, i) => {
+            const x = padding.left + (chartWidth / (data.length - 1)) * i;
+            const y = padding.top + chartHeight - (d.value / maxValue) * chartHeight;
+            return { x, y };
+        });
+
+        const pathData = points.map((p, i) =>
+            `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`
+        ).join(' ');
+
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", pathData);
+        path.setAttribute("fill", "none");
+        path.setAttribute("stroke", color);
+        path.setAttribute("stroke-width", "2");
+        svg.appendChild(path);
+
+        // 绘制数据点
+        points.forEach(p => {
+            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            circle.setAttribute("cx", String(p.x));
+            circle.setAttribute("cy", String(p.y));
+            circle.setAttribute("r", "3");
+            circle.setAttribute("fill", color);
+            svg.appendChild(circle);
+        });
+
+        // X轴标签
+        data.forEach((d, i) => {
+            const x = padding.left + (chartWidth / (data.length - 1)) * i;
+            const labelEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            labelEl.setAttribute("x", String(x));
+            labelEl.setAttribute("y", String(height - padding.bottom + 15));
+            labelEl.setAttribute("text-anchor", "middle");
+            labelEl.setAttribute("font-size", "10");
+            labelEl.setAttribute("fill", "var(--text-muted)");
+            labelEl.textContent = d.month;
+            svg.appendChild(labelEl);
+        });
+
+        container.appendChild(svg);
+    }
+
 
     /**
      * 渲染迷你日历（用于交易页左侧栏）
@@ -815,6 +1111,222 @@ export class CostMainView extends ItemView {
     }
 
     /**
+     * 渲染收支趋势图
+     */
+    private renderTrendChart(container: HTMLElement, transactions: TransactionInfo[]): void {
+        const widget = container.createDiv({ cls: "cost-trend-chart" });
+
+        // 标题
+        const header = widget.createDiv({ cls: "cost-trend-chart-header" });
+        header.createSpan({ cls: "cost-trend-chart-title", text: "收支趋势" });
+
+        // 计算最近6个月的数据
+        const monthlyData: Array<{ month: string; income: number; expense: number }> = [];
+        const now = new Date();
+
+        for (let i = 5; i >= 0; i--) {
+            const targetDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const year = targetDate.getFullYear();
+            const month = targetDate.getMonth() + 1;
+            const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+
+            let income = 0;
+            let expense = 0;
+
+            for (const txn of transactions) {
+                if (txn.date.startsWith(monthStr)) {
+                    if (txn.txnType === "收入") {
+                        income += txn.amount;
+                    } else if (txn.txnType === "支出") {
+                        expense += txn.amount - txn.refund;
+                    }
+                }
+            }
+
+            monthlyData.push({
+                month: `${month}月`,
+                income,
+                expense
+            });
+        }
+
+        // 如果没有数据，显示空状态
+        if (monthlyData.every(d => d.income === 0 && d.expense === 0)) {
+            widget.createDiv({ cls: "cost-trend-chart-empty", text: "暂无数据" });
+            return;
+        }
+
+        // 渲染SVG折线图
+        const chartContainer = widget.createDiv({ cls: "cost-trend-chart-container" });
+        this.renderLineChart(chartContainer, monthlyData);
+    }
+
+    /**
+     * 渲染SVG折线图
+     */
+    private renderLineChart(
+        container: HTMLElement,
+        data: Array<{ month: string; income: number; expense: number }>
+    ): void {
+        const width = 300;
+        const height = 180;
+        const padding = { top: 20, right: 20, bottom: 30, left: 50 };
+        const chartWidth = width - padding.left - padding.right;
+        const chartHeight = height - padding.top - padding.bottom;
+
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+        svg.setAttribute("class", "cost-line-chart");
+
+        // 找到最大值用于缩放
+        const maxValue = Math.max(
+            ...data.map(d => Math.max(d.income, d.expense)),
+            100 // 最小值避免图表太扁
+        );
+
+        // 绘制网格线和Y轴标签
+        const gridLines = 4;
+        for (let i = 0; i <= gridLines; i++) {
+            const y = padding.top + (chartHeight / gridLines) * i;
+            const value = maxValue * (1 - i / gridLines);
+
+            // 网格线
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", String(padding.left));
+            line.setAttribute("y1", String(y));
+            line.setAttribute("x2", String(width - padding.right));
+            line.setAttribute("y2", String(y));
+            line.setAttribute("stroke", "var(--background-modifier-border)");
+            line.setAttribute("stroke-width", "1");
+            line.setAttribute("opacity", "0.3");
+            svg.appendChild(line);
+
+            // Y轴标签
+            const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            label.setAttribute("x", String(padding.left - 5));
+            label.setAttribute("y", String(y + 4));
+            label.setAttribute("text-anchor", "end");
+            label.setAttribute("font-size", "10");
+            label.setAttribute("fill", "var(--text-muted)");
+            label.textContent = this.formatCompact(value);
+            svg.appendChild(label);
+        }
+
+        // 计算点的位置
+        const points: Array<{ x: number; y: number; income: number; expense: number }> = [];
+        data.forEach((d, i) => {
+            const x = padding.left + (chartWidth / (data.length - 1)) * i;
+            const incomeY = padding.top + chartHeight - (d.income / maxValue) * chartHeight;
+            const expenseY = padding.top + chartHeight - (d.expense / maxValue) * chartHeight;
+            points.push({ x, y: incomeY, income: d.income, expense: d.expense });
+        });
+
+        // 绘制收入折线
+        const incomePath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        const incomePathData = points.map((p, i) =>
+            `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`
+        ).join(' ');
+        incomePath.setAttribute("d", incomePathData);
+        incomePath.setAttribute("fill", "none");
+        incomePath.setAttribute("stroke", "var(--color-green)");
+        incomePath.setAttribute("stroke-width", "2");
+        svg.appendChild(incomePath);
+
+        // 绘制支出折线
+        const expensePath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        const expensePathData = points.map((p, i) => {
+            const dataPoint = data[i];
+            if (!dataPoint) return '';
+            const y = padding.top + chartHeight - (dataPoint.expense / maxValue) * chartHeight;
+            return `${i === 0 ? 'M' : 'L'} ${p.x} ${y}`;
+        }).join(' ');
+        expensePath.setAttribute("d", expensePathData);
+        expensePath.setAttribute("fill", "none");
+        expensePath.setAttribute("stroke", "var(--color-red)");
+        expensePath.setAttribute("stroke-width", "2");
+        svg.appendChild(expensePath);
+
+        // 绘制数据点
+        points.forEach((p, i) => {
+            const dataPoint = data[i];
+            if (!dataPoint) return;
+
+            // 收入点
+            const incomeCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            incomeCircle.setAttribute("cx", String(p.x));
+            incomeCircle.setAttribute("cy", String(p.y));
+            incomeCircle.setAttribute("r", "3");
+            incomeCircle.setAttribute("fill", "var(--color-green)");
+            svg.appendChild(incomeCircle);
+
+            // 支出点
+            const expenseY = padding.top + chartHeight - (dataPoint.expense / maxValue) * chartHeight;
+            const expenseCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            expenseCircle.setAttribute("cx", String(p.x));
+            expenseCircle.setAttribute("cy", String(expenseY));
+            expenseCircle.setAttribute("r", "3");
+            expenseCircle.setAttribute("fill", "var(--color-red)");
+            svg.appendChild(expenseCircle);
+        });
+
+        // X轴标签（月份）
+        data.forEach((d, i) => {
+            const x = padding.left + (chartWidth / (data.length - 1)) * i;
+            const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            label.setAttribute("x", String(x));
+            label.setAttribute("y", String(height - padding.bottom + 15));
+            label.setAttribute("text-anchor", "middle");
+            label.setAttribute("font-size", "10");
+            label.setAttribute("fill", "var(--text-muted)");
+            label.textContent = d.month;
+            svg.appendChild(label);
+        });
+
+        // 图例
+        const legend = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        legend.setAttribute("transform", `translate(${width - padding.right - 80}, 10)`);
+
+        // 收入图例
+        const incomeLegendLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        incomeLegendLine.setAttribute("x1", "0");
+        incomeLegendLine.setAttribute("y1", "0");
+        incomeLegendLine.setAttribute("x2", "15");
+        incomeLegendLine.setAttribute("y2", "0");
+        incomeLegendLine.setAttribute("stroke", "var(--color-green)");
+        incomeLegendLine.setAttribute("stroke-width", "2");
+        legend.appendChild(incomeLegendLine);
+
+        const incomeLegendText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        incomeLegendText.setAttribute("x", "20");
+        incomeLegendText.setAttribute("y", "4");
+        incomeLegendText.setAttribute("font-size", "10");
+        incomeLegendText.setAttribute("fill", "var(--text-normal)");
+        incomeLegendText.textContent = "收入";
+        legend.appendChild(incomeLegendText);
+
+        // 支出图例
+        const expenseLegendLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        expenseLegendLine.setAttribute("x1", "45");
+        expenseLegendLine.setAttribute("y1", "0");
+        expenseLegendLine.setAttribute("x2", "60");
+        expenseLegendLine.setAttribute("y2", "0");
+        expenseLegendLine.setAttribute("stroke", "var(--color-red)");
+        expenseLegendLine.setAttribute("stroke-width", "2");
+        legend.appendChild(expenseLegendLine);
+
+        const expenseLegendText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        expenseLegendText.setAttribute("x", "65");
+        expenseLegendText.setAttribute("y", "4");
+        expenseLegendText.setAttribute("font-size", "10");
+        expenseLegendText.setAttribute("fill", "var(--text-normal)");
+        expenseLegendText.textContent = "支出";
+        legend.appendChild(expenseLegendText);
+
+        svg.appendChild(legend);
+        container.appendChild(svg);
+    }
+
+    /**
      * 获取所有账户的期初余额映射
      */
     private getAccountOpeningBalances(): Map<string, number> {
@@ -998,7 +1510,8 @@ export class CostMainView extends ItemView {
         const amountCol = item.createDiv({ cls: "cost-txn-amount-col" });
 
         const amountEl = amountCol.createDiv({ cls: "cost-txn-amount" });
-        const prefix = txn.txnType === "收入" ? "+" : (txn.txnType === "支出" || txn.txnType === "还款" ? "-" : "");
+        // 收入显示+，支出显示-，转账和还款不显示符号
+        const prefix = txn.txnType === "收入" ? "+" : (txn.txnType === "支出" ? "-" : "");
         if (txn.txnType === "支出" && txn.refund > 0) {
             const netAmount = txn.amount - txn.refund;
             amountEl.setText(`${prefix}${netAmount.toFixed(2)}`);
@@ -1022,12 +1535,12 @@ export class CostMainView extends ItemView {
                     const balance = txnBalances.get(accountName)!;
                     const changeEl = balanceChangesEl.createSpan({ cls: "cost-txn-balance-bubble" });
                     // 不显示账户名
-                    const beforeVal = balance.before;
-                    const afterVal = balance.after;
+                    const beforeVal = this.normalizeBalance(balance.before);
+                    const afterVal = this.normalizeBalance(balance.after);
                     const beforeSpan = changeEl.createSpan({ text: this.formatThousands(beforeVal, 0) });
                     const arrowSpan = changeEl.createSpan({ cls: "cost-txn-balance-arrow", text: "→" });
                     const afterSpan = changeEl.createSpan({ text: this.formatThousands(afterVal, 0) });
-                    // 着色：正数绿色，负数红色
+                    // 着色：正数绿色，负数红色，0不着色
                     if (beforeVal > 0) beforeSpan.addClass("cost-balance-positive");
                     else if (beforeVal < 0) beforeSpan.addClass("cost-balance-negative");
                     if (afterVal > 0) afterSpan.addClass("cost-balance-positive");
@@ -1278,8 +1791,8 @@ export class CostMainView extends ItemView {
             if (balance) {
                 const balanceChangesEl = amountCol.createDiv({ cls: "cost-txn-balance-changes" });
                 const changeEl = balanceChangesEl.createSpan({ cls: "cost-txn-balance-bubble" });
-                const beforeVal = balance.before;
-                const afterVal = balance.after;
+                const beforeVal = this.normalizeBalance(balance.before);
+                const afterVal = this.normalizeBalance(balance.after);
                 const beforeSpan = changeEl.createSpan({ text: this.formatThousands(beforeVal, 0) });
                 changeEl.createSpan({ cls: "cost-txn-balance-arrow", text: "→" });
                 const afterSpan = changeEl.createSpan({ text: this.formatThousands(afterVal, 0) });
