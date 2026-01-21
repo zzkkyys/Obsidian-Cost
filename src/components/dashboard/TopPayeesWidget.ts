@@ -4,23 +4,29 @@ import { formatCompact } from '../../utils/format';
 
 export class TopPayeesWidget extends BaseComponent {
     private transactions: TransactionInfo[];
+    private type: '支出' | '收入';
 
-    constructor(containerEl: HTMLElement, transactions: TransactionInfo[]) {
+    constructor(containerEl: HTMLElement, transactions: TransactionInfo[], type: '支出' | '收入' = '支出') {
         super(containerEl);
         this.transactions = transactions;
+        this.type = type;
     }
 
     protected render(): void {
         const container = this.containerEl;
         container.addClass("cost-top-payees-widget");
 
-        container.createEl("h3", { text: "消费排行榜", cls: "cost-card-title" });
+        const title = this.type === '支出' ? "消费排行榜" : "收入排行榜";
+        container.createEl("h3", { text: title, cls: "cost-card-title" });
 
         // Calculate
         const payeeMap = new Map<string, number>();
         for (const txn of this.transactions) {
-            if (txn.txnType === '支出' && txn.payee) {
-                const amount = txn.amount - (txn.refund || 0);
+            if (txn.txnType === this.type && txn.payee) {
+                let amount = txn.amount;
+                if (this.type === '支出') {
+                    amount = txn.amount - (txn.refund || 0);
+                }
                 payeeMap.set(txn.payee, (payeeMap.get(txn.payee) || 0) + amount);
             }
         }
@@ -46,6 +52,9 @@ export class TopPayeesWidget extends BaseComponent {
             const percent = (amount / maxVal) * 100;
             const bar = barContainer.createDiv({ cls: "cost-payee-bar" });
             bar.style.width = `${percent}%`;
+            if (this.type === '收入') {
+                bar.style.backgroundColor = "var(--color-green)";
+            }
 
             // 3. Amount
             row.createDiv({ cls: "cost-payee-amount", text: formatCompact(amount) });

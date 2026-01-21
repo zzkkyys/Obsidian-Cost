@@ -187,7 +187,8 @@ export class CostMainView extends ItemView {
                         await this.plugin.transactionService.scanTransactions();
                         this.plugin.refreshViews();
                     }).open();
-                }
+                },
+                customIconPath: this.plugin.settings.customIconPath
             }).mount();
         } else {
             rightCol.createDiv({ cls: "cost-empty-message cost-select-hint", text: "← 请选择一个账户查看交易" });
@@ -221,14 +222,25 @@ export class CostMainView extends ItemView {
         const expenseData = this.calculateTrendData(transactions, '支出');
         new TrendChart(expenseContainer, expenseData, 'var(--color-red)').mount();
 
-        // 4. Analysis Section (Top Payees + Category)
+        // 4. Analysis Section (Rankings + Category)
         const analysisSection = container.createDiv({ cls: 'cost-stats-grid-row' });
 
-        const topPayeesContainer = analysisSection.createDiv({ cls: 'cost-stats-card' });
-        new TopPayeesWidget(topPayeesContainer, transactions).mount();
+        // Row 1: Expense
+        const expenseRankContainer = analysisSection.createDiv({ cls: 'cost-stats-card' });
+        new TopPayeesWidget(expenseRankContainer, transactions, '支出').mount();
 
-        const categoryContainer = analysisSection.createDiv({ cls: 'cost-stats-card' });
-        new CategoryStatsCard(categoryContainer, transactions).mount();
+        const expenseCatContainer = analysisSection.createDiv({ cls: 'cost-stats-card' });
+        new CategoryStatsCard(expenseCatContainer, transactions, '支出').mount();
+
+        // Row 2: Income
+        // Create new row for Income
+        const incomeAnalysisSection = container.createDiv({ cls: 'cost-stats-grid-row' });
+
+        const incomeRankContainer = incomeAnalysisSection.createDiv({ cls: 'cost-stats-card' });
+        new TopPayeesWidget(incomeRankContainer, transactions, '收入').mount();
+
+        const incomeCatContainer = incomeAnalysisSection.createDiv({ cls: 'cost-stats-card' });
+        new CategoryStatsCard(incomeCatContainer, transactions, '收入').mount();
 
         // 5. Heatmap Section
         const heatmapSection = container.createDiv({ cls: 'cost-stats-section' });

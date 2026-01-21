@@ -8,13 +8,16 @@ export class CategoryStatsCard extends BaseComponent {
     private rangeType: "month" | "year" | "all" = "month";
     private year: number;
     private month: number;
+    private type: '支出' | '收入';
 
     constructor(
         containerEl: HTMLElement,
-        transactions: TransactionInfo[]
+        transactions: TransactionInfo[],
+        type: '支出' | '收入' = '支出'
     ) {
         super(containerEl);
         this.transactions = transactions;
+        this.type = type;
         const now = new Date();
         this.year = now.getFullYear();
         this.month = now.getMonth();
@@ -25,7 +28,8 @@ export class CategoryStatsCard extends BaseComponent {
 
         // Header
         const header = widget.createDiv({ cls: "cost-category-stats-header" });
-        header.createSpan({ cls: "cost-category-stats-title", text: "分类统计" });
+        const title = this.type === '支出' ? "分类统计" : "收入分类";
+        header.createSpan({ cls: "cost-category-stats-title", text: title });
 
         // Range Selector
         const rangeSelector = header.createDiv({ cls: "cost-stats-range-selector" });
@@ -34,22 +38,26 @@ export class CategoryStatsCard extends BaseComponent {
         // Filter Data
         const filtered = this.filterTransactions();
 
-        // Filter Expenses
-        const expenses = filtered.filter(t => t.txnType === "支出");
+        // Filter by Type
+        const targetTxns = filtered.filter(t => t.txnType === this.type);
 
-        if (expenses.length === 0) {
-            widget.createDiv({ cls: "cost-category-stats-empty", text: "该时间段暂无支出记录" });
+        if (targetTxns.length === 0) {
+            const emptyText = this.type === '支出' ? "该时间段暂无支出记录" : "该时间段暂无收入记录";
+            widget.createDiv({ cls: "cost-category-stats-empty", text: emptyText });
             return;
         }
 
         // Aggregate
         const categoryMap = new Map<string, number>();
-        let totalExpense = 0;
-        for (const txn of expenses) {
+        let totalAmount = 0;
+        for (const txn of targetTxns) {
             const category = txn.category?.split("/")[0] || "未分类";
-            const amount = txn.amount - txn.refund;
+            let amount = txn.amount;
+            if (this.type === '支出') {
+                amount = txn.amount - (txn.refund || 0);
+            }
             categoryMap.set(category, (categoryMap.get(category) || 0) + amount);
-            totalExpense += amount;
+            totalAmount += amount;
         }
 
         // Sort
@@ -74,7 +82,7 @@ export class CategoryStatsCard extends BaseComponent {
         // PieChart: const chartWrapper = this.containerEl.createDiv({ cls: "cost-category-chart" });
         // So yes, we pass contentEl.
 
-        new PieChart(contentEl, sorted, colors, totalExpense).mount();
+        new PieChart(contentEl, sorted, colors, totalAmount).mount();
     }
 
     private renderRangeSelector(container: HTMLElement): void {

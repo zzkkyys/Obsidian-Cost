@@ -69,6 +69,9 @@ export class AccountList extends BaseComponent {
         let total = 0;
         accounts.forEach(a => total += (this.balances.get(a.fileName) || 0));
 
+        // Normalize -0
+        if (Math.abs(total) < 0.000001) total = 0;
+
         const totalEl = header.createSpan({ cls: "cost-account-group-total", text: formatThousands(total, 2) });
         if (total >= 0) totalEl.addClass("cost-balance-positive");
         else totalEl.addClass("cost-balance-negative");
@@ -94,7 +97,10 @@ export class AccountList extends BaseComponent {
         const count = this.transactionCounts.get(account.fileName) || 0;
         info.createDiv({ cls: "cost-account-list-count", text: `${count} 笔交易` });
 
-        const bal = this.balances.get(account.fileName) || 0;
+        let bal = this.balances.get(account.fileName) || 0;
+        // Normalize -0 to 0 to avoid negative styling
+        if (Math.abs(bal) < 0.000001) bal = 0;
+
         const balEl = item.createDiv({ cls: "cost-account-list-balance", text: formatThousands(bal, 2) });
         if (bal >= 0) balEl.addClass("cost-balance-positive");
         else balEl.addClass("cost-balance-negative");
