@@ -15,13 +15,24 @@ import { TopPayeesWidget } from "../components/dashboard/TopPayeesWidget";
 import { KPICardsWidget } from "../components/dashboard/KPICardsWidget";
 import { AnnualHeatmapWidget } from "../components/dashboard/AnnualHeatmapWidget";
 import { TransactionEditModal } from "../modals/TransactionEditModal";
+import { TransactionTable } from "../components/lists/TransactionTable";
+import { BatchEditModal } from "../modals/BatchEditModal";
 
-type TabType = "transactions" | "accounts" | "stats";
+type TabType = "transactions" | "accounts" | "stats" | "management";
 
 export class CostMainView extends ItemView {
     private plugin: CostPlugin;
     private currentTab: TabType = "transactions";
     private selectedAccount: AccountInfo | null = null;
+
+    // Management Filters
+    private filters = {
+        startDate: "",
+        endDate: "",
+        type: "all", // all, 支出, 收入, 转账, 还款
+        account: "all",
+        keyword: ""
+    };
 
     constructor(leaf: WorkspaceLeaf, plugin: CostPlugin) {
         super(leaf);
@@ -74,6 +85,8 @@ export class CostMainView extends ItemView {
             this.renderAccountsTab(content);
         } else if (this.currentTab === "stats") {
             this.renderStatsTab(content);
+        } else if (this.currentTab === "management") {
+            this.renderManagementTab(content);
         }
     }
 
@@ -82,7 +95,8 @@ export class CostMainView extends ItemView {
         const tabs: { id: TabType; label: string }[] = [
             { id: "transactions", label: "交易" },
             { id: "accounts", label: "账户" },
-            { id: "stats", label: "统计" }
+            { id: "stats", label: "统计" },
+            { id: "management", label: "管理" }
         ];
 
         tabs.forEach(tab => {
@@ -254,6 +268,7 @@ export class CostMainView extends ItemView {
         new CalendarWidget(calendarContainer, transactions).mount();
     }
 
+
     private calculateTrendData(transactions: TransactionInfo[], type: '收入' | '支出'): TrendDataPoint[] {
         const now = new Date();
         const data: TrendDataPoint[] = [];
@@ -282,12 +297,151 @@ export class CostMainView extends ItemView {
         return data;
     }
 
-    private openTransactionFile(txn: TransactionInfo): void {
-        const file = this.app.vault.getAbstractFileByPath(txn.path);
-        if (file) {
-            this.app.workspace.getLeaf().openFile(file as any);
-        }
+    private renderManagementTab(container: HTMLElement): void {
+        const wrapper = container.createDiv({ cls: "cost-management-view" });
+
+        // 1. Filter Bar
+        const filterBar = wrapper.createDiv({ cls: "cost-filter-bar" });
+
+        // Date Range
+        const dateSpan = filterBar.createSpan({ cls: "cost-filter-group" });
+        dateSpan.createSpan({ text: "日期: " });
+        const startInput = dateSpan.createEl("input", { type: "date" });
+        startInput.value = this.filters.startDate;
+        startInput.onchange = () => { this.filters.startDate = startInput.value; this.render(); };
+
+        dateSpan.createSpan({ text: " - " });
+        const endInput = dateSpan.createEl("input", { type: "date" });
+        endInput.value = this.filters.endDate;
+        endInput.onchange = () => { this.filters.endDate = endInput.value; this.render(); };
+
+        // Type
+        const typeSelect = filterBar.createEl("select", { cls: "cost-filter-select" });
+        ["all", "支出", "收入", "转账", "还款"].forEach(t => {
+            const opt = typeSelect.createEl("option", { value: t, text: t === "all" ? "所有类型" : t });
+            if (this.filters.type === t) opt.selected = true;
+        });
+        typeSelect.onchange = () => { this.filters.type = typeSelect.value; this.render(); };
+
+        // Account
+        const accSelect = filterBar.createEl("select", { cls: "cost-filter-select" });
+        accSelect.createEl("option", { value: "all", text: "所有账户" });
+        this.plugin.accountService.getAccounts().forEach(acc => {
+            const opt = accSelect.createEl("option", { value: acc.fileName, text: acc.displayName });
+            if (this.filters.account === acc.fileName) opt.selected = true;
+        });
+        accSelect.onchange = () => { this.filters.account = accSelect.value; this.render(); };
+
+        // Keyword
+        const keywordWrapper = filterBar.createDiv({ cls: "cost-filter-group cost-search-wrapper" });
+        const keywordInput = keywordWrapper.createEl("input", { type: "text", cls: "cost-filter-search" });
+        keywordInput.placeholder = "搜索备注/商家/分类... (回车搜索)";
+        keywordInput.value = this.filters.keyword;
+
+        const searchBtn = keywordWrapper.createEl("button", { cls: "cost-search-btn" });
+        setIcon(searchBtn, "search");
+
+        const triggerSearch = () => {
+            this.filters.keyword = keywordInput.value;
+            new Notice(`正在搜索: ${this.filters.keyword}`); // Feedback
+            updateTable();
+        };
+
+        keywordInput.onkeydown = (e) => {
+            if (e.key === "Enter") triggerSearch();
+        };
+
+        searchBtn.onclick = triggerSearch;
+
+        // 2. Action Bar (Batch Edit)
+        const actionBar = wrapper.createDiv({ cls: "cost-action-bar" });
+        const batchEditBtn = actionBar.createEl("button", { text: "批量修改", cls: "mod-cta" });
+        batchEditBtn.disabled = true;
+
+
+        // 4. Data Table
+        const tableContainer = wrapper.createDiv({ cls: "cost-table-wrapper" });
+        const table = new TransactionTable(tableContainer, [], { // Start empty, will fill via updateTable
+            onSelectionChange: (selected) => {
+                batchEditBtn.disabled = selected.size === 0;
+                batchEditBtn.setText(`批量修改 (${selected.size})`);
+            },
+            onTransactionClick: (txn) => {
+                new TransactionEditModal(this.app, txn, this.plugin.transactionService, this.plugin.accountService, async () => {
+                    await this.plugin.transactionService.scanTransactions();
+                    this.plugin.refreshViews();
+                }).open();
+            }
+        });
+        table.mount();
+
+        // Update Function
+        const updateTable = () => {
+            let transactions = this.plugin.transactionService.getTransactions();
+
+            // Verify Data
+            let total = transactions.length;
+
+            // Date Filter
+            if (this.filters.startDate) transactions = transactions.filter(t => t.date >= this.filters.startDate);
+            if (this.filters.endDate) transactions = transactions.filter(t => t.date <= this.filters.endDate);
+
+            // Type Filter
+            if (this.filters.type !== "all") transactions = transactions.filter(t => t.txnType === this.filters.type);
+
+            // Account Filter
+            if (this.filters.account !== "all") {
+                transactions = transactions.filter(t => t.from === this.filters.account || t.to === this.filters.account);
+            }
+
+            const countBeforeKeyword = transactions.length;
+
+            // Keyword Filter
+            if (this.filters.keyword) {
+                const k = this.filters.keyword.toLowerCase().trim();
+                transactions = transactions.filter(t =>
+                    String(t.note || "").toLowerCase().includes(k) ||
+                    String(t.payee || "").toLowerCase().includes(k) ||
+                    String(t.category || "").toLowerCase().includes(k) ||
+                    String(t.from || "").toLowerCase().includes(k) ||
+                    String(t.to || "").toLowerCase().includes(k) ||
+                    String(t.path || "").toLowerCase().includes(k) ||
+                    (t.amount !== undefined && t.amount !== null && t.amount.toString().includes(k))
+                );
+
+                // new Notice(`Debug: 预筛选后 ${countBeforeKeyword} 条 -> 关键词筛选后 ${transactions.length} 条 (关键词: "${k}")`);
+            } else {
+                // new Notice(`Debug: 总数 ${total} -> 筛选后 ${transactions.length}`);
+            }
+
+            actionBar.empty(); // Clear count
+            actionBar.createSpan({ cls: "cost-filter-count", text: `共 ${transactions.length} 条记录` });
+            actionBar.appendChild(batchEditBtn); // Re-append button
+
+            table.setTransactions(transactions, this.filters.keyword.trim());
+        };
+
+        // Attach Handlers
+        startInput.onchange = () => { this.filters.startDate = startInput.value; updateTable(); };
+        endInput.onchange = () => { this.filters.endDate = endInput.value; updateTable(); };
+        typeSelect.onchange = () => { this.filters.type = typeSelect.value; updateTable(); };
+        accSelect.onchange = () => { this.filters.account = accSelect.value; updateTable(); };
+        // keywordInput handled by onkeydown above
+
+        batchEditBtn.onclick = () => {
+            const selected = table.getSelectedPaths();
+            if (selected.size > 0) {
+                new BatchEditModal(this.app, this.plugin.transactionService, Array.from(selected), async () => {
+                    await this.plugin.transactionService.scanTransactions();
+                    this.plugin.refreshViews();
+                }).open();
+            }
+        };
+
+        // Initial Load
+        updateTable();
     }
+
 
     private handleAccountClick(accountName: string): void {
         const account = this.plugin.accountService.getAccounts().find(a => a.fileName === accountName || a.displayName === accountName);

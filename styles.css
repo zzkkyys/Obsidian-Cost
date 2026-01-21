@@ -2151,3 +2151,141 @@ Obsidian Cost Plugin Styles
 	object-fit: cover;
 	border-radius: 12px;
 }
+
+
+/* Management View */
+.cost-management-view {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	overflow: hidden;
+	padding: 0 10px 10px 10px;
+}
+
+
+.cost-highlight {
+	background-color: rgba(255, 255, 0, 0.4);
+	border-radius: 2px;
+	color: var(--text-normal);
+}
+
+.cost-filter-bar {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 10px 0;
+	flex-wrap: wrap;
+	border-bottom: 1px solid var(--background-modifier-border);
+	margin-bottom: 10px;
+}
+
+.cost-filter-group {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.cost-search-wrapper {
+	flex-grow: 1;
+	max-width: 350px;
+}
+
+.cost-search-btn {
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	opacity: 0.7;
+	padding: 4px;
+}
+
+.cost-search-btn:hover {
+	opacity: 1;
+}
+
+.cost-filter-select,
+.cost-filter-search {
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	padding: 4px 8px;
+}
+
+.cost-filter-search {
+	flex-grow: 1;
+	max-width: 300px;
+}
+
+.cost-action-bar {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 10px;
+}
+
+.cost-table-wrapper {
+	flex-grow: 1;
+	overflow: auto;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	background: var(--background-primary);
+}
+
+.cost-txn-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.cost-txn-table th,
+.cost-txn-table td {
+	padding: 8px 12px;
+	text-align: left;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.cost-txn-table th {
+	background: var(--background-secondary);
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	font-weight: 600;
+}
+
+.cost-sortable-th:hover {
+	background: var(--background-modifier-hover) !important;
+}
+
+.cost-th-content {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	/* Align right for amount */
+	gap: 4px;
+}
+
+.cost-sort-icon {
+	display: flex;
+	align-items: center;
+}
+
+.cost-txn-table tr:hover {
+	background: var(--background-secondary-alt);
+}
+
+.cost-table-checkbox {
+	width: 40px;
+	text-align: center !important;
+}
+
+.cost-table-amount {
+	text-align: right !important;
+	font-family: var(--font-monospace);
+	font-weight: 600;
+}
+
+.cost-table-note {
+	max-width: 200px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	color: var(--text-muted);
+}
