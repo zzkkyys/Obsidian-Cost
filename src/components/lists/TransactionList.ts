@@ -163,8 +163,8 @@ export class TransactionList extends BaseComponent {
                 // We need to look up in metadataCache if file exists
                 // Assuming icons are in 'customIconPath'
 
-                // Try png, jpg, jpeg, svg
-                const extensions = ["png", "jpg", "jpeg", "svg", "webp"];
+                // Try png, jpg, jpeg, svg, gif
+                const extensions = ["png", "jpg", "jpeg", "svg", "webp", "gif"];
                 let foundFile: TFile | null = null;
 
                 // Try:
