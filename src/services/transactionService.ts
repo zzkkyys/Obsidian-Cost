@@ -371,17 +371,28 @@ export class TransactionService {
     }
 
     async createTransaction(): Promise<TFile> {
-        let folder = this.app.vault.getAbstractFileByPath(this.transactionsPath);
-        if (!folder || !(folder instanceof TFolder)) {
-            await this.app.vault.createFolder(this.transactionsPath);
-        }
-
+        // 1. Prepare Date Info
         const now = new Date();
-        const dateStr = now.toISOString().split("T")[0];
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+        const day = String(now.getDate()).padStart(2, "0");
+        const dateStr = `${year}-${month}-${day}`;
         const timeStr = (now.toTimeString().split(" ")[0] || "00:00:00").substring(0, 5);
-        const uid = Date.now().toString();
 
+        // 2. Build Folder Path: root/YYYY/YYYY-MM/YYYY-MM-DD
+        const yearly = `${this.transactionsPath}/${year}`;
+        const monthly = `${yearly}/${year}-${month}`;
+        const daily = `${monthly}/${year}-${month}-${day}`;
+
+        // 3. Ensure Folders Exist
+        await this.ensureFolder(this.transactionsPath);
+        await this.ensureFolder(yearly);
+        await this.ensureFolder(monthly);
+        await this.ensureFolder(daily);
+
+        const uid = Date.now().toString();
         const fileName = `txn-${uid}.md`;
+
         const content = `---
 uid: ${uid}
 date: ${dateStr}
@@ -398,6 +409,13 @@ memo:
 type: txn
 ---`;
 
-        return await this.app.vault.create(`${this.transactionsPath}/${fileName}`, content);
+        return await this.app.vault.create(`${daily}/${fileName}`, content);
+    }
+
+    private async ensureFolder(path: string): Promise<void> {
+        const folder = this.app.vault.getAbstractFileByPath(path);
+        if (!folder) {
+            await this.app.vault.createFolder(path);
+        }
     }
 }
