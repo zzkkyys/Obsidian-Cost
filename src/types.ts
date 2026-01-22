@@ -29,6 +29,8 @@ export interface TransactionFrontmatter {
     txn_type: "收入" | "支出" | "还款" | "转账";
     category: string;
     amount: number;
+    /** 优惠金额 (仅还款有效) */
+    discount?: number;
     /** 退款金额 */
     refund?: number;
     currency: string;

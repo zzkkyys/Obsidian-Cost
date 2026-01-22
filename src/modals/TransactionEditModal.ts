@@ -58,6 +58,8 @@ export class TransactionEditModal extends Modal {
             .setName("金额")
             .addText(text => text.setValue(String(amount)).onChange(v => amount = parseFloat(v)));
 
+        let discountSetting: Setting;
+
         new Setting(contentEl)
             .setName("类型")
             .addDropdown(dd => dd
@@ -66,8 +68,27 @@ export class TransactionEditModal extends Modal {
                 .addOption("转账", "转账")
                 .addOption("还款", "还款")
                 .setValue(type)
-                .onChange(v => type = v as any)
+                .onChange(v => {
+                    type = v as any;
+                    // Toggle discount visibility
+                    if (type === "还款") {
+                        discountSetting.settingEl.show();
+                    } else {
+                        discountSetting.settingEl.hide();
+                    }
+                })
             );
+
+        // Discount Input (Hidden by default unless type is Repayment)
+        let discount = this.txn.discount || 0;
+        discountSetting = new Setting(contentEl)
+            .setName("优惠金额")
+            .setDesc("仅在还款时生效，如信用卡的还款立减")
+            .addText(text => text.setValue(discount > 0 ? String(discount) : "").onChange(v => discount = parseFloat(v) || 0));
+
+        if (type !== "还款") {
+            discountSetting.settingEl.hide();
+        }
 
         // Helper to add input with dropdown menu triggering on click
         const addComboInput = (container: HTMLElement, name: string, initialValue: string, options: string[], onChange: (v: string) => void, hierarchical: boolean = false) => {
@@ -223,6 +244,7 @@ export class TransactionEditModal extends Modal {
             await this.service.updateTransaction(this.file, {
                 date,
                 amount,
+                discount: type === "还款" ? discount : 0, // Only save discount for repayment
                 txn_type: type,
                 category,
                 from,

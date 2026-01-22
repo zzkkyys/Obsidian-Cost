@@ -21,6 +21,8 @@ export interface TransactionInfo {
     category: string;
     /** 金额 */
     amount: number;
+    /** 优惠金额 */
+    discount?: number;
     /** 退款金额 */
     refund: number;
     /** 货币 */
@@ -138,6 +140,7 @@ export class TransactionService {
             txnType: fm.txn_type || "支出",
             category: fm.category || "",
             amount: fm.amount || 0,
+            discount: fm.discount || 0,
             refund: fm.refund || 0,
             currency: fm.currency || "CNY",
             from: fm.from || "",
@@ -182,11 +185,11 @@ export class TransactionService {
                 change += txn.amount;
             } else if (txn.txnType === "支出" && isFrom) {
                 // 从此账户支出（减去退款）
-                change -= (txn.amount - txn.refund);
+                change -= (txn.amount - (txn.refund || 0));
             } else if (txn.txnType === "还款") {
-                // 还款：from 账户减少，to 账户增加（信用卡负债减少）
+                // 还款：from 账户减少 (amount - discount)，to 账户增加 amount
                 if (isFrom) {
-                    change -= txn.amount;
+                    change -= (txn.amount - (txn.discount || 0));
                 }
                 if (isTo) {
                     change += txn.amount;
@@ -266,16 +269,16 @@ export class TransactionService {
         } else if (txn.txnType === "支出") {
             if (isFrom || isTo) {
                 // 支出减去退款 = 实际支出
-                return -(txn.amount - txn.refund);
+                return -(txn.amount - (txn.refund || 0));
             }
         } else if (txn.txnType === "还款") {
-            // 还款：from 账户减少，to 账户增加（信用卡负债减少）
+            // 还款：from 账户减少 (amount - discount)，to 账户增加 amount
             if (isFrom && isTo) {
-                // 自己还自己，没变化
-                return 0;
+                // 自己还自己，理论上 from 减少 (amt - disc), to 增加 amt => 净增 discount
+                return (txn.discount || 0);
             }
             if (isFrom) {
-                return -txn.amount;
+                return -(txn.amount - (txn.discount || 0));
             }
             if (isTo) {
                 return txn.amount;
@@ -358,6 +361,7 @@ export class TransactionService {
             if (data.date !== undefined) fm.date = data.date;
             if (data.time !== undefined) fm.time = data.time;
             if (data.amount !== undefined) fm.amount = data.amount;
+            if (data.discount !== undefined) fm.discount = data.discount;
             if (data.txn_type !== undefined) fm.txn_type = data.txn_type;
             if (data.category !== undefined) fm.category = data.category;
             if (data.from !== undefined) fm.from = data.from;
