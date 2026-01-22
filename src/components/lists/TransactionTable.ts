@@ -1,7 +1,7 @@
 import { App, setIcon, TFile } from "obsidian";
 import { BaseComponent } from "../BaseComponent";
 import { TransactionInfo } from "../../services/transactionService";
-import { formatCompact } from "../../utils/format";
+import { formatCompact, formatThousands } from "../../utils/format";
 
 export interface TransactionTableOptions {
     onSelectionChange?: (selected: Set<string>) => void;
@@ -229,7 +229,10 @@ export class TransactionTable extends BaseComponent {
             if (this.keyword && amtText.includes(this.keyword)) {
                 this.renderHighlighted(amtCell, amtText);
             } else {
-                amtCell.setText(amtText);
+                const textSpan = amtCell.createSpan({ text: amtText });
+                if (txn.txnType === "还款" && txn.discount && txn.discount > 0) {
+                    amtCell.createSpan({ cls: "cost-table-discount-tag", text: ` (惠 ${txn.discount})` });
+                }
             }
 
             if (isRefundContext) {
@@ -240,7 +243,24 @@ export class TransactionTable extends BaseComponent {
             }
 
             // Account
-            let accText = (txn.from || "") + (txn.to ? ` -> ${txn.to}` : "");
+            let accText = txn.from || "";
+
+            if (txn.to) {
+                if (txn.txnType === "转账" || txn.txnType === "还款") {
+                    let outAmt = txn.amount;
+                    let inAmt = txn.amount;
+
+                    if (txn.txnType === "还款" && txn.discount) {
+                        outAmt = txn.amount - txn.discount;
+                    }
+
+                    // Show flow: From (-Out) -> To (+In)
+                    accText = `${txn.from} (-${formatThousands(outAmt, 2)}) → ${txn.to} (+${formatThousands(inAmt, 2)})`;
+                } else {
+                    accText += ` -> ${txn.to}`;
+                }
+            }
+
             if (!isRefundContext && txn.txnType === "支出" && txn.refund && txn.refund > 0) {
                 const targetAccount = txn.refundTo || txn.from;
                 accText += ` (退回: ${targetAccount})`;

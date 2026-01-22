@@ -252,6 +252,10 @@ export class TransactionList extends BaseComponent {
             txn.persons.forEach(p => personsEl.createSpan({ cls: "cost-txn-person-bubble", text: "@" + p }));
         }
 
+        if (txn.txnType === "还款" && txn.discount && txn.discount > 0) {
+            bottomRow.createSpan({ cls: "cost-txn-discount", text: `优惠 ${txn.discount.toFixed(2)}` });
+        }
+
         if (!isRefundContext && txn.refund > 0) {
             const target = txn.refundTo || txn.from || "";
             bottomRow.createSpan({ cls: "cost-txn-refund", text: `退款 ${txn.refund.toFixed(2)} -> ${target}` });
@@ -286,7 +290,11 @@ export class TransactionList extends BaseComponent {
                 const balanceContainer = amountCol.createDiv({ cls: "cost-txn-balance-col-wrapper" });
                 for (const [accountName, bal] of changes) {
                     const span = balanceContainer.createDiv({ cls: "cost-txn-balance-change-right" });
-                    span.setText(`${formatThousands(bal.before)} → ${formatThousands(bal.after)}`);
+                    const diff = bal.after - bal.before;
+                    const diffStr = diff > 0 ? `+${formatThousands(diff, 2)}` : formatThousands(diff, 2);
+
+                    span.setText(`${formatThousands(bal.before, 2)} → ${formatThousands(bal.after, 2)} (${diffStr})`);
+
                     if (bal.after < bal.before) span.addClass("cost-balance-down");
                     else if (bal.after > bal.before) span.addClass("cost-balance-up");
                 }
@@ -363,8 +371,17 @@ export class TransactionList extends BaseComponent {
 
         if (txn.txnType === "转账" || txn.txnType === "还款") {
             renderItem(txn.from, 'from');
-            bubble.createSpan({ text: " → " });
+
+            let outAmt = txn.amount;
+            let inAmt = txn.amount;
+
+            if (txn.txnType === "还款" && txn.discount) {
+                outAmt = txn.amount - txn.discount;
+            }
+
+            bubble.createSpan({ text: ` (-${formatThousands(outAmt, 2)}) → ` });
             renderItem(txn.to, 'to');
+            bubble.createSpan({ text: ` (+${formatThousands(inAmt, 2)})` });
         } else {
             const name = txn.from || txn.to;
             const field = txn.from ? 'from' : 'to';
