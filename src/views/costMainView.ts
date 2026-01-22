@@ -202,7 +202,8 @@ export class CostMainView extends ItemView {
                         this.plugin.refreshViews();
                     }).open();
                 },
-                customIconPath: this.plugin.settings.customIconPath
+                customIconPath: this.plugin.settings.customIconPath,
+                activeAccount: this.selectedAccount?.fileName // Pass context
             }).mount();
         } else {
             rightCol.createDiv({ cls: "cost-empty-message cost-select-hint", text: "← 请选择一个账户查看交易" });

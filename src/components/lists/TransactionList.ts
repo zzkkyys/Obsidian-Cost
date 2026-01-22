@@ -10,6 +10,7 @@ export interface TransactionListOptions {
     onDateClick?: (txn: TransactionInfo) => void;
     onTimeClick?: (txn: TransactionInfo) => void;
     customIconPath?: string;
+    activeAccount?: string | null; // Added
 }
 
 export class TransactionList extends BaseComponent {
@@ -121,8 +122,14 @@ export class TransactionList extends BaseComponent {
         let dailyIncome = 0;
         let dailyExpense = 0;
         for (const txn of transactions) {
-            if (txn.txnType === '收入') dailyIncome += txn.amount;
-            else if (txn.txnType === '支出') dailyExpense += (txn.amount - txn.refund);
+            const isRefundContext = this.options.activeAccount && txn.refundTo === this.options.activeAccount && txn.refund > 0;
+            if (isRefundContext) {
+                // Treated as Income
+                dailyIncome += txn.refund || 0;
+            } else {
+                if (txn.txnType === '收入') dailyIncome += txn.amount;
+                else if (txn.txnType === '支出') dailyExpense += (txn.amount - (txn.refund || 0));
+            }
         }
 
         if (dailyIncome > 0 || dailyExpense > 0) {
@@ -143,7 +150,9 @@ export class TransactionList extends BaseComponent {
     }
 
     private renderTransactionItem(container: HTMLElement, txn: TransactionInfo): void {
-        const item = container.createDiv({ cls: `cost-transaction-item cost-txn-${txn.txnType}` });
+        const isRefundContext = this.options.activeAccount && txn.refundTo === this.options.activeAccount && txn.refund > 0;
+
+        const item = container.createDiv({ cls: `cost-transaction-item cost-txn-${isRefundContext ? "收入" : txn.txnType}` });
 
         // Category Icon
         // Category Icon
@@ -216,7 +225,7 @@ export class TransactionList extends BaseComponent {
 
         // Top Row: Category | Payee | Address
         const topRow = infoEl.createDiv({ cls: "cost-txn-top-row" });
-        topRow.createSpan({ cls: "cost-txn-category", text: txn.category || "未分类" });
+        topRow.createSpan({ cls: "cost-txn-category", text: (txn.category || "未分类") + (isRefundContext ? " (退款)" : "") });
         if (txn.payee) topRow.createSpan({ cls: "cost-txn-payee", text: txn.payee });
         if (txn.address) topRow.createSpan({ cls: "cost-txn-address", text: "📍 " + txn.address });
 
@@ -243,23 +252,32 @@ export class TransactionList extends BaseComponent {
             txn.persons.forEach(p => personsEl.createSpan({ cls: "cost-txn-person-bubble", text: "@" + p }));
         }
 
-        if (txn.refund > 0) {
-            bottomRow.createSpan({ cls: "cost-txn-refund", text: `退款 ${txn.refund.toFixed(2)}` });
+        if (!isRefundContext && txn.refund > 0) {
+            const target = txn.refundTo || txn.from || "";
+            bottomRow.createSpan({ cls: "cost-txn-refund", text: `退款 ${txn.refund.toFixed(2)} -> ${target}` });
+        } else if (isRefundContext) {
+            bottomRow.createSpan({ cls: "cost-txn-refund", text: `来自: ${txn.from}` });
         }
 
         // Amount Column
         const amountCol = item.createDiv({ cls: "cost-txn-amount-col" });
         const amountEl = amountCol.createDiv({ cls: "cost-txn-amount" });
-        const prefix = txn.txnType === "收入" ? "+" : (txn.txnType === "支出" ? "-" : "");
 
-        if (txn.txnType === "支出" && txn.refund > 0) {
-            const net = txn.amount - txn.refund;
-            amountEl.setText(`${prefix}${net.toFixed(2)}`);
-            amountCol.createDiv({ cls: "cost-txn-original-amount", text: `原 ${txn.amount.toFixed(2)}` });
+        if (isRefundContext) {
+            // In context of refund target: Show as Income
+            amountEl.setText(`+${txn.refund?.toFixed(2)}`);
+            amountEl.addClass("cost-amount-收入");
         } else {
-            amountEl.setText(`${prefix}${txn.amount.toFixed(2)}`);
+            const prefix = txn.txnType === "收入" ? "+" : (txn.txnType === "支出" ? "-" : "");
+            if (txn.txnType === "支出" && txn.refund > 0) {
+                const net = txn.amount - txn.refund;
+                amountEl.setText(`${prefix}${net.toFixed(2)}`);
+                amountCol.createDiv({ cls: "cost-txn-original-amount", text: `原 ${txn.amount.toFixed(2)}` });
+            } else {
+                amountEl.setText(`${prefix}${txn.amount.toFixed(2)}`);
+            }
+            amountEl.addClass(`cost-amount-${txn.txnType}`);
         }
-        amountEl.addClass(`cost-amount-${txn.txnType}`);
 
         // Balance Changes Rendering (Moved here)
         if (this.runningBalances) {

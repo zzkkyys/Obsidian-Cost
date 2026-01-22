@@ -33,6 +33,8 @@ export interface TransactionFrontmatter {
     discount?: number;
     /** 退款金额 */
     refund?: number;
+    /** 退款账户 (默认为来源账户) */
+    refund_to?: string;
     currency: string;
     from: string;
     to: string;

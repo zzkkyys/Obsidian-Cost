@@ -6,6 +6,7 @@ import { formatCompact } from "../../utils/format";
 export interface TransactionTableOptions {
     onSelectionChange?: (selected: Set<string>) => void;
     onTransactionClick?: (txn: TransactionInfo) => void;
+    activeAccount?: string | null;  // For context-aware rendering
 }
 
 export class TransactionTable extends BaseComponent {
@@ -194,23 +195,35 @@ export class TransactionTable extends BaseComponent {
                 this.toggleSelection(txn.path, cb.checked);
             };
 
+            // Determine context
+            const isRefundContext = this.options.activeAccount && txn.refundTo === this.options.activeAccount && txn.refund > 0;
+
             // Date
             row.createEl("td", { text: txn.date || "-" });
 
             // Type
             const typeCell = row.createEl("td");
-            typeCell.createSpan({
-                cls: `cost-tag ${txn.txnType === "支出" ? "is-expense" : (txn.txnType === "收入" ? "is-income" : "is-transfer")}`,
-                text: txn.txnType
-            });
+            if (isRefundContext) {
+                typeCell.createSpan({ cls: "cost-tag is-income", text: "退款" });
+            } else {
+                typeCell.createSpan({
+                    cls: `cost-tag ${txn.txnType === "支出" ? "is-expense" : (txn.txnType === "收入" ? "is-income" : "is-transfer")}`,
+                    text: txn.txnType
+                });
+            }
 
             // Category
             this.renderHighlighted(row.createEl("td"), txn.category || "");
 
             // Amount
             const amtCell = row.createEl("td", { cls: "cost-table-amount" });
-            const amt = txn.amount - (txn.refund || 0);
-            const amtText = formatCompact(amt);
+            let displayAmount = 0;
+            if (isRefundContext) {
+                displayAmount = txn.refund || 0;
+            } else {
+                displayAmount = txn.amount - (txn.refund || 0);
+            }
+            const amtText = formatCompact(displayAmount);
 
             // Highlight Amount if matches
             if (this.keyword && amtText.includes(this.keyword)) {
@@ -219,11 +232,25 @@ export class TransactionTable extends BaseComponent {
                 amtCell.setText(amtText);
             }
 
-            if (txn.txnType === "支出") amtCell.addClass("cost-text-red");
-            else if (txn.txnType === "收入") amtCell.addClass("cost-text-green");
+            if (isRefundContext) {
+                amtCell.addClass("cost-text-green");
+            } else {
+                if (txn.txnType === "支出") amtCell.addClass("cost-text-red");
+                else if (txn.txnType === "收入") amtCell.addClass("cost-text-green");
+            }
 
             // Account
-            const accText = (txn.from || "") + (txn.to ? ` -> ${txn.to}` : "");
+            let accText = (txn.from || "") + (txn.to ? ` -> ${txn.to}` : "");
+            if (!isRefundContext && txn.txnType === "支出" && txn.refund && txn.refund > 0) {
+                const targetAccount = txn.refundTo || txn.from;
+                accText += ` (退回: ${targetAccount})`;
+            }
+            // If isRefundContext, we are in the refund account, so we know it came here. 
+            // Maybe show source? "From: Alipay"? 
+            if (isRefundContext) {
+                accText = `来自: ${txn.from}`;
+            }
+
             this.renderHighlighted(row.createEl("td"), accText);
 
             // Payee

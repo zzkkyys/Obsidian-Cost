@@ -70,12 +70,7 @@ export class TransactionEditModal extends Modal {
                 .setValue(type)
                 .onChange(v => {
                     type = v as any;
-                    // Toggle discount visibility
-                    if (type === "还款") {
-                        discountSetting.settingEl.show();
-                    } else {
-                        discountSetting.settingEl.hide();
-                    }
+                    updateVisibility();
                 })
             );
 
@@ -86,11 +81,66 @@ export class TransactionEditModal extends Modal {
             .setDesc("仅在还款时生效，如信用卡的还款立减")
             .addText(text => text.setValue(discount > 0 ? String(discount) : "").onChange(v => discount = parseFloat(v) || 0));
 
-        if (type !== "还款") {
-            discountSetting.settingEl.hide();
+        // Refund Inputs (Hidden by default unless type is Expense)
+        let refundSetting: Setting;
+        let refundToSetting: Setting;
+        let refund = this.txn.refund || 0;
+        let refundTo = this.txn.refundTo || "";
+
+        // Toggle logic helper
+        const updateVisibility = () => {
+            // Discount for Repayment
+            if (type === "还款") discountSetting.settingEl.show();
+            else discountSetting.settingEl.hide();
+
+            // Refund for Exepense
+            if (type === "支出") {
+                refundSetting.settingEl.show();
+                if (refund > 0) refundToSetting.settingEl.show();
+                else refundToSetting.settingEl.hide();
+            } else {
+                refundSetting.settingEl.hide();
+                refundToSetting.settingEl.hide();
+            }
         }
 
-        // Helper to add input with dropdown menu triggering on click
+        // Dropdown change handler update
+        // existing code ... .onChange(v => { type = v as any; updateVisibility(); }) ...
+
+        // Insert Refund UI after Discount UI
+        refundSetting = new Setting(contentEl)
+            .setName("退款金额")
+            .setDesc("如有退款发生，请输入金额")
+            .addText(text => text.setValue(refund > 0 ? String(refund) : "").onChange(v => {
+                refund = parseFloat(v) || 0;
+                updateVisibility(); // Show/hide refundTo based on amount
+            }));
+
+        refundToSetting = new Setting(contentEl)
+            .setName("退款账户")
+            .setDesc("默认退回原账户，可选其他账户");
+        // We'll use the existing addComboInput helper, but need to attach to setting manually or just use text input
+        // Since addComboInput creates its own setting, let's adapt.
+        // Actually, let's just create the inputs inline or re-use helper logic. 
+        // Simplest: Render standard setting, get controlEl, and apply combo logic.
+        const refundToText = new TextComponent(refundToSetting.controlEl);
+        refundToText.setValue(refundTo).setPlaceholder(from || "默认原账户").onChange(v => refundTo = v);
+        // Add click menu for refundTo
+        refundToText.inputEl.onclick = (e) => {
+            const accountList = this.accountService.getAccounts().map(a => a.fileName);
+            const menu = new Menu();
+            accountList.forEach(opt => {
+                menu.addItem(item => item.setTitle(opt).onClick(() => {
+                    refundToText.setValue(opt);
+                    refundTo = opt;
+                }));
+            });
+            const rect = refundToText.inputEl.getBoundingClientRect();
+            menu.showAtPosition({ x: rect.left, y: rect.bottom });
+        };
+
+        // Initial Visibility
+        updateVisibility();
         const addComboInput = (container: HTMLElement, name: string, initialValue: string, options: string[], onChange: (v: string) => void, hierarchical: boolean = false) => {
             const setting = new Setting(container).setName(name);
 
@@ -244,7 +294,9 @@ export class TransactionEditModal extends Modal {
             await this.service.updateTransaction(this.file, {
                 date,
                 amount,
-                discount: type === "还款" ? discount : 0, // Only save discount for repayment
+                discount: type === "还款" ? discount : 0,
+                refund: type === "支出" ? refund : 0,
+                refund_to: type === "支出" ? refundTo : "",
                 txn_type: type,
                 category,
                 from,

@@ -25,6 +25,8 @@ export interface TransactionInfo {
     discount?: number;
     /** 退款金额 */
     refund: number;
+    /** 退款账户 */
+    refundTo?: string;
     /** 货币 */
     currency: string;
     /** 来源账户 */
@@ -142,6 +144,7 @@ export class TransactionService {
             amount: fm.amount || 0,
             discount: fm.discount || 0,
             refund: fm.refund || 0,
+            refundTo: fm.refund_to || "",
             currency: fm.currency || "CNY",
             from: fm.from || "",
             to: fm.to || "",
@@ -165,7 +168,9 @@ export class TransactionService {
      */
     getTransactionsByAccount(accountFileName: string): TransactionInfo[] {
         return this.transactionCache.filter(txn =>
-            txn.from.includes(accountFileName) || txn.to.includes(accountFileName)
+            txn.from.includes(accountFileName) ||
+            txn.to.includes(accountFileName) ||
+            (txn.refundTo && txn.refundTo.includes(accountFileName))
         );
     }
 
@@ -179,13 +184,16 @@ export class TransactionService {
         for (const txn of this.transactionCache) {
             const isFrom = txn.from.includes(accountFileName);
             const isTo = txn.to.includes(accountFileName);
+            const isRefundTo = txn.refundTo ? txn.refundTo.includes(accountFileName) : isFrom;
 
             if (txn.txnType === "收入" && isTo) {
                 // 收入到此账户
                 change += txn.amount;
-            } else if (txn.txnType === "支出" && isFrom) {
-                // 从此账户支出（减去退款）
-                change -= (txn.amount - (txn.refund || 0));
+            } else if (txn.txnType === "支出") {
+                // 支出: from 减去全额
+                if (isFrom) change -= txn.amount;
+                // 退款: refundTo 增加退款 (默认 refundTo == from)
+                if (isRefundTo) change += (txn.refund || 0);
             } else if (txn.txnType === "还款") {
                 // 还款：from 账户减少 (amount - discount)，to 账户增加 amount
                 if (isFrom) {
@@ -261,16 +269,15 @@ export class TransactionService {
     getBalanceChangeForTransaction(txn: TransactionInfo, accountFileName: string): number {
         const isFrom = txn.from.includes(accountFileName);
         const isTo = txn.to.includes(accountFileName);
+        const isRefundTo = txn.refundTo ? txn.refundTo.includes(accountFileName) : isFrom;
 
         if (txn.txnType === "收入") {
-            if (isTo || isFrom) {
-                return txn.amount;
-            }
+            if (isTo || isFrom) return txn.amount;
         } else if (txn.txnType === "支出") {
-            if (isFrom || isTo) {
-                // 支出减去退款 = 实际支出
-                return -(txn.amount - (txn.refund || 0));
-            }
+            let change = 0;
+            if (isFrom) change -= txn.amount;
+            if (isRefundTo) change += (txn.refund || 0);
+            return change;
         } else if (txn.txnType === "还款") {
             // 还款：from 账户减少 (amount - discount)，to 账户增加 amount
             if (isFrom && isTo) {
@@ -360,6 +367,9 @@ export class TransactionService {
             // Update fields
             if (data.date !== undefined) fm.date = data.date;
             if (data.time !== undefined) fm.time = data.time;
+            if (data.refund !== undefined) fm.refund = data.refund;
+            if (data.refund_to !== undefined) fm.refund_to = data.refund_to;
+            if (data.currency !== undefined) fm.currency = data.currency;
             if (data.amount !== undefined) fm.amount = data.amount;
             if (data.discount !== undefined) fm.discount = data.discount;
             if (data.txn_type !== undefined) fm.txn_type = data.txn_type;
