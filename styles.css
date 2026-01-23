@@ -2289,3 +2289,13 @@ Obsidian Cost Plugin Styles
 	text-overflow: ellipsis;
 	color: var(--text-muted);
 }
+
+/* Code Block View */
+.cost-code-block-view {
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    padding: 12px;
+    background-color: var(--background-primary);
+    margin-top: 12px;
+    margin-bottom: 12px;
+}

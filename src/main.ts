@@ -1,4 +1,4 @@
-import { Notice, Plugin } from "obsidian";
+import { Notice, Plugin, parseYaml } from "obsidian";
 import { DEFAULT_SETTINGS, CostPluginSettings, CostSettingTab } from "./settings";
 import { AccountService } from "./services/accountService";
 import { TransactionService, TransactionInfo } from "./services/transactionService";
@@ -8,6 +8,7 @@ import { registerPropertyWidgets } from "./widgets/propertyWidget";
 import { AccountsSidebarView, ACCOUNTS_SIDEBAR_VIEW_TYPE } from "./views/accountsSidebarView";
 import { CostMainView, COST_MAIN_VIEW_TYPE } from "./views/costMainView";
 import { CostStatsView, COST_STATS_VIEW_TYPE } from "./views/costStatsView";
+import { TransactionList } from "./components/lists/TransactionList";
 
 export default class CostPlugin extends Plugin {
 	settings: CostPluginSettings;
@@ -82,6 +83,84 @@ export default class CostPlugin extends Plugin {
 				this.refreshViews();
 			})
 		);
+
+		// 注册 Markdown Code Block Processor
+		this.registerMarkdownCodeBlockProcessor("ob-cost", (source, el, ctx) => {
+			let targetDate = "";
+			let startDate = "";
+			let endDate = "";
+
+			// 1. Try to parse YAML config from source
+			try {
+				const config = parseYaml(source);
+				if (typeof config === "object" && config !== null) {
+					if (config.date) targetDate = String(config.date);
+					if (config.startDate) startDate = String(config.startDate);
+					if (config.endDate) endDate = String(config.endDate);
+				} else if (typeof source === "string" && source.trim()) {
+					// Backward compatibility: check if source is just a date string
+					const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+					const trimmed = source.trim();
+					if (dateRegex.test(trimmed)) {
+						targetDate = trimmed;
+					}
+				}
+			} catch (e) {
+				// Not valid YAML, maybe just a date string?
+				const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+				const trimmed = source.trim();
+				if (dateRegex.test(trimmed)) {
+					targetDate = trimmed;
+				}
+			}
+
+			// 2. If no valid config, try fallback to filename
+			if (!targetDate && !startDate && !endDate) {
+				const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+				if (ctx.sourcePath) {
+					const fileName = ctx.sourcePath.split("/").pop();
+					if (fileName) {
+						const namePart = fileName.split(".")[0];
+						if (namePart && dateRegex.test(namePart)) {
+							targetDate = namePart;
+						}
+					}
+				}
+			}
+
+			if (!targetDate && !startDate && !endDate) {
+				el.createDiv({ text: "Obsidian Cost: 请指定日期 (date 或 startDate/endDate)，或在日记文件中使用。", cls: "cost-error-message" });
+				return;
+			}
+
+			// Render
+			el.addClass("cost-code-block-view");
+
+			const transactions = this.transactionService.getTransactions().filter(t => {
+				if (targetDate) {
+					return t.date === targetDate;
+				} else if (startDate && endDate) {
+					return t.date >= startDate && t.date <= endDate;
+				} else if (startDate) {
+					return t.date >= startDate;
+				} else if (endDate) {
+					return t.date <= endDate;
+				}
+				return false;
+			});
+
+			const accounts = this.accountService.getAccounts();
+
+			new TransactionList(el, this.app, transactions, accounts, null, {
+				customIconPath: this.settings.customIconPath,
+				onTransactionClick: (txn) => {
+					new TransactionEditModal(this.app, txn, this.transactionService, this.accountService, async () => {
+						await this.transactionService.scanTransactions();
+						this.refreshViews();
+					}).open();
+				}
+			}).mount();
+		});
 
 		// 添加侧边栏图标
 		const ribbonIcon = this.addRibbonIcon("wallet", "打开账户侧边栏", () => {
