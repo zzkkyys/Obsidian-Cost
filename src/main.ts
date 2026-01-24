@@ -1,4 +1,4 @@
-import { Notice, Plugin, parseYaml } from "obsidian";
+import { Notice, Plugin, parseYaml, debounce, TFile } from "obsidian";
 import { DEFAULT_SETTINGS, CostPluginSettings, CostSettingTab } from "./settings";
 import { AccountService } from "./services/accountService";
 import { TransactionService, TransactionInfo } from "./services/transactionService";
@@ -49,38 +49,76 @@ export default class CostPlugin extends Plugin {
 		// 注册账户建议器（用于 Source Mode 下 from/to 字段自动补全）
 		this.registerEditorSuggest(new AccountSuggester(this, this.accountService));
 
+		// Debounced refresh function
+		const requestRefresh = debounce(this.refreshViews.bind(this), 300, true);
+
 		// 监听文件变化，更新缓存
 		this.registerEvent(
 			this.app.metadataCache.on("changed", async (file) => {
+				if (!(file instanceof TFile)) return;
+
 				const cache = this.app.metadataCache.getFileCache(file);
 				let changed = false;
+
+				// Check frontmatter type if available to route to correct service
+				// Note: file cache might be updated asynchronously? 
+				// Incremental refresh:
 				if (cache?.frontmatter?.type === "account") {
-					await this.accountService.scanAccounts();
+					await this.accountService.refreshAccount(file);
 					changed = true;
-				}
-				if (cache?.frontmatter?.type === "txn") {
-					await this.transactionService.scanTransactions();
+				} else if (cache?.frontmatter?.type === "txn") {
+					await this.transactionService.refreshTransaction(file);
 					changed = true;
+				} else {
+					// Fallback: Check paths if frontmatter isn't populated yet or malformed?
+					// Or just try refresh both? Efficiency vs Safety.
+					// If it's a markdown file, it might be relevant.
+					// Let's rely on path or frontmatter. 
+					// If checking folders:
+					// if (file.path.startsWith(this.settings.accountsPath)) ...
 				}
-				if (changed) this.refreshViews();
+
+				if (changed) requestRefresh();
 			})
 		);
 
 		// 监听文件创建
 		this.registerEvent(
-			this.app.vault.on("create", async () => {
-				await this.accountService.scanAccounts();
-				await this.transactionService.scanTransactions();
-				this.refreshViews();
+			this.app.vault.on("create", async (file) => {
+				if (!(file instanceof TFile)) return;
+
+				// Wait for metadata cache to populate? Or try parsing file directly?
+				// TransactionService.parseTransactionFile uses metadataCache.
+				// On create, metadata might not be ready instantly. 
+				// However, `create` event usually comes after file is written.
+				// A small delay might be needed or listen to metadata `resolve`?
+				// Simple approach: Try refreshing. If metadata missing, it returns null.
+				// But "changed" event usually follows.
+				// Let's try explicit refresh.
+				let changed = false;
+				if (file.path.includes(this.settings.accountsPath)) {
+					// It's likely an account, but we need metadata to confirm type usually.
+					// But if it's in the folder...
+					await this.accountService.refreshAccount(file);
+					changed = true;
+				} else if (file.path.includes(this.settings.transactionsPath)) {
+					await this.transactionService.refreshTransaction(file);
+					changed = true;
+				}
+
+				if (changed) requestRefresh();
 			})
 		);
 
 		// 监听文件删除
 		this.registerEvent(
-			this.app.vault.on("delete", async () => {
-				await this.accountService.scanAccounts();
-				await this.transactionService.scanTransactions();
-				this.refreshViews();
+			this.app.vault.on("delete", async (file) => {
+				if (!(file instanceof TFile)) return;
+
+				// Remove from caches
+				this.accountService.removeAccount(file.path);
+				this.transactionService.removeTransaction(file.path);
+				requestRefresh();
 			})
 		);
 

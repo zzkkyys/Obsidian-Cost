@@ -76,15 +76,15 @@ export class AccountService {
         }
 
         const frontmatter = cache.frontmatter as Partial<AccountFrontmatter>;
-        
+
         // 检查是否为账户类型
         if (frontmatter.type !== "account") {
             return null;
         }
 
         // 构建显示名称
-        const displayName = frontmatter.name && frontmatter.name !== "未命名" 
-            ? frontmatter.name 
+        const displayName = frontmatter.name && frontmatter.name !== "未命名"
+            ? frontmatter.name
             : file.basename;
 
         return {
@@ -107,11 +107,34 @@ export class AccountService {
     }
 
     /**
+     * 刷新单个账户文件的缓存
+     */
+    async refreshAccount(file: TFile): Promise<void> {
+        const account = await this.parseAccountFile(file);
+        if (account) {
+            // Remove existing if any
+            this.accountCache = this.accountCache.filter(a => a.path !== file.path);
+            this.accountCache.push(account);
+
+            // Re-sort by name if needed, or leave arbitrary order?
+            // Let's sort alphabetically by display name for consistency
+            this.accountCache.sort((a, b) => a.displayName.localeCompare(b.displayName));
+        }
+    }
+
+    /**
+     * 移除单个账户文件的缓存
+     */
+    removeAccount(path: string): void {
+        this.accountCache = this.accountCache.filter(a => a.path !== path);
+    }
+
+    /**
      * 根据查询字符串过滤账户
      */
     filterAccounts(query: string): AccountInfo[] {
         const lowerQuery = query.toLowerCase();
-        return this.accountCache.filter(account => 
+        return this.accountCache.filter(account =>
             account.displayName.toLowerCase().includes(lowerQuery) ||
             account.fileName.toLowerCase().includes(lowerQuery) ||
             account.accountKind.toLowerCase().includes(lowerQuery) ||

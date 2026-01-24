@@ -34,6 +34,8 @@ export class CostMainView extends ItemView {
         keyword: ""
     };
 
+    private tabContentMap: Map<TabType, HTMLElement> = new Map();
+
     constructor(leaf: WorkspaceLeaf, plugin: CostPlugin) {
         super(leaf);
         this.plugin = plugin;
@@ -54,11 +56,34 @@ export class CostMainView extends ItemView {
     async onOpen(): Promise<void> {
         this.contentEl.empty();
         this.contentEl.addClass("cost-main-view");
-        await this.render();
+        this.renderInitialStructure();
+        await this.renderActiveTab();
     }
 
     async onClose(): Promise<void> {
         this.contentEl.empty();
+        this.tabContentMap.clear();
+    }
+
+    // Initialize the fixed structure (Tabs + Content Area)
+    private renderInitialStructure(): void {
+        this.contentEl.empty();
+        this.renderTabBar();
+
+        // Create containers for each tab, initially hidden
+        const contentContainer = this.contentEl.createDiv({ cls: "cost-view-content" });
+        const tabs: TabType[] = ["transactions", "accounts", "stats", "management"];
+
+        tabs.forEach(tab => {
+            const container = contentContainer.createDiv({ cls: "cost-tab-content" });
+            // Initial visibility logic
+            if (tab === this.currentTab) {
+                container.style.display = "block";
+            } else {
+                container.style.display = "none";
+            }
+            this.tabContentMap.set(tab, container);
+        });
     }
 
     /**
@@ -66,31 +91,57 @@ export class CostMainView extends ItemView {
      */
     public async selectAccount(account: AccountInfo): Promise<void> {
         this.selectedAccount = account;
-        this.currentTab = "accounts";
-        await this.render();
+        this.switchTab("accounts");
     }
 
     public async update(): Promise<void> {
-        await this.render();
+        // Only re-render the currently active tab to save resources
+        await this.renderActiveTab();
     }
 
-    private async render(): Promise<void> {
-        this.contentEl.empty();
-        this.renderTabs();
-        const content = this.contentEl.createDiv({ cls: "cost-view-content" });
+    private async switchTab(tab: TabType): Promise<void> {
+        this.currentTab = tab;
+        this.updateTabUI();
+        await this.renderActiveTab();
+    }
+
+    private updateTabUI(): void {
+        // Update Tab Bar Selection
+        const tabs = this.contentEl.querySelectorAll(".cost-tab");
+        tabs.forEach((el: HTMLElement) => {
+            if (el.dataset.tab === this.currentTab) el.addClass("is-active");
+            else el.removeClass("is-active");
+        });
+
+        // Toggle Content Visibility
+        this.tabContentMap.forEach((container, key) => {
+            if (key === this.currentTab) {
+                container.style.display = "block";
+            } else {
+                container.style.display = "none";
+            }
+        });
+    }
+
+    private async renderActiveTab(): Promise<void> {
+        const container = this.tabContentMap.get(this.currentTab);
+        if (!container) return;
+
+        // Clean container before re-rendering active tab content
+        container.empty();
 
         if (this.currentTab === "transactions") {
-            this.renderTransactionsTab(content);
+            this.renderTransactionsTab(container);
         } else if (this.currentTab === "accounts") {
-            this.renderAccountsTab(content);
+            this.renderAccountsTab(container);
         } else if (this.currentTab === "stats") {
-            this.renderStatsTab(content);
+            this.renderStatsTab(container);
         } else if (this.currentTab === "management") {
-            this.renderManagementTab(content);
+            this.renderManagementTab(container);
         }
     }
 
-    private renderTabs(): void {
+    private renderTabBar(): void {
         const tabBar = this.contentEl.createDiv({ cls: "cost-tab-bar" });
         const tabs: { id: TabType; label: string }[] = [
             { id: "transactions", label: "交易" },
@@ -104,10 +155,13 @@ export class CostMainView extends ItemView {
                 cls: `cost-tab ${this.currentTab === tab.id ? "is-active" : ""}`,
                 text: tab.label
             });
+            tabEl.dataset.tab = tab.id;
             tabEl.onclick = () => {
-                this.currentTab = tab.id;
-                this.selectedAccount = null;
-                this.render();
+                this.selectedAccount = null; // Reset selection on manual tab switch? Or keep it?
+                // User might want to switch back to account view and see selection.
+                // But for "Select Account" action it sets it.
+                // Keeping it simplier: Click tab = just switch.
+                this.switchTab(tab.id);
             };
         });
 
@@ -115,7 +169,6 @@ export class CostMainView extends ItemView {
         const addBtn = tabBar.createDiv({ cls: "cost-tab-action" });
         setIcon(addBtn, "plus");
         addBtn.onclick = () => {
-            // 触发命令打开模态框
             (this.app as any).commands.executeCommandById(this.plugin.manifest.id + ":create-transaction");
         };
 
@@ -123,10 +176,11 @@ export class CostMainView extends ItemView {
         setIcon(refreshBtn, "refresh-cw");
         refreshBtn.onclick = async () => {
             refreshBtn.addClass("is-loading");
+            // Full scan for manual refresh
             await this.plugin.transactionService.scanTransactions();
             await this.plugin.accountService.scanAccounts();
             refreshBtn.removeClass("is-loading");
-            this.render();
+            this.update();
         };
     }
 
@@ -178,7 +232,12 @@ export class CostMainView extends ItemView {
             selectedAccount: this.selectedAccount,
             onAccountClick: (acc) => {
                 this.selectedAccount = acc;
-                this.render();
+                // Switch tab is redundant if already in accounts, but it ensures UI update
+                // Since this is inside renderAccountsTab which is called by renderActiveTab, 
+                // calling switchTab/update might re-trigger. 
+                // We just need to re-render the active tab content or right column.
+                // Simple approach: update()
+                this.update();
             }
         }).mount();
 
@@ -309,12 +368,12 @@ export class CostMainView extends ItemView {
         dateSpan.createSpan({ text: "日期: " });
         const startInput = dateSpan.createEl("input", { type: "date" });
         startInput.value = this.filters.startDate;
-        startInput.onchange = () => { this.filters.startDate = startInput.value; this.render(); };
+        startInput.onchange = () => { this.filters.startDate = startInput.value; this.update(); };
 
         dateSpan.createSpan({ text: " - " });
         const endInput = dateSpan.createEl("input", { type: "date" });
         endInput.value = this.filters.endDate;
-        endInput.onchange = () => { this.filters.endDate = endInput.value; this.render(); };
+        endInput.onchange = () => { this.filters.endDate = endInput.value; this.update(); };
 
         // Type
         const typeSelect = filterBar.createEl("select", { cls: "cost-filter-select" });
@@ -322,7 +381,7 @@ export class CostMainView extends ItemView {
             const opt = typeSelect.createEl("option", { value: t, text: t === "all" ? "所有类型" : t });
             if (this.filters.type === t) opt.selected = true;
         });
-        typeSelect.onchange = () => { this.filters.type = typeSelect.value; this.render(); };
+        typeSelect.onchange = () => { this.filters.type = typeSelect.value; this.update(); };
 
         // Account
         const accSelect = filterBar.createEl("select", { cls: "cost-filter-select" });
@@ -331,7 +390,7 @@ export class CostMainView extends ItemView {
             const opt = accSelect.createEl("option", { value: acc.fileName, text: acc.displayName });
             if (this.filters.account === acc.fileName) opt.selected = true;
         });
-        accSelect.onchange = () => { this.filters.account = accSelect.value; this.render(); };
+        accSelect.onchange = () => { this.filters.account = accSelect.value; this.update(); };
 
         // Keyword
         const keywordWrapper = filterBar.createDiv({ cls: "cost-filter-group cost-search-wrapper" });
@@ -448,8 +507,7 @@ export class CostMainView extends ItemView {
         const account = this.plugin.accountService.getAccounts().find(a => a.fileName === accountName || a.displayName === accountName);
         if (account) {
             this.selectedAccount = account;
-            this.currentTab = "accounts";
-            this.render();
+            this.switchTab("accounts");
         }
     }
 }

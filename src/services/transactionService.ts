@@ -164,6 +164,32 @@ export class TransactionService {
     }
 
     /**
+     * 刷新单个交易文件的缓存
+     */
+    async refreshTransaction(file: TFile): Promise<void> {
+        const txn = this.parseTransactionFile(file);
+        if (txn) {
+            // Remove existing if any
+            this.transactionCache = this.transactionCache.filter(t => t.path !== file.path);
+            this.transactionCache.push(txn);
+
+            // Re-sort
+            this.transactionCache.sort((a, b) => {
+                const dateCompare = b.date.localeCompare(a.date);
+                if (dateCompare !== 0) return dateCompare;
+                return (b.time || "").localeCompare(a.time || "");
+            });
+        }
+    }
+
+    /**
+     * 移除单个交易文件的缓存
+     */
+    removeTransaction(path: string): void {
+        this.transactionCache = this.transactionCache.filter(t => t.path !== path);
+    }
+
+    /**
      * 获取指定账户的所有交易
      */
     getTransactionsByAccount(accountFileName: string): TransactionInfo[] {
