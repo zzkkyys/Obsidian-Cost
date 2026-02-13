@@ -198,7 +198,7 @@ export class CostMainView extends ItemView {
 
         new TransactionList(container, this.app, transactions, accounts, runningBalances, {
             onTransactionClick: (txn) => {
-                new TransactionEditModal(this.app, txn, this.plugin.transactionService, this.plugin.accountService, this.plugin.settings.customIconPath, async () => {
+                new TransactionEditModal(this.app, txn, this.plugin.transactionService, this.plugin.accountService, this.plugin.settings.customIconPath, this.plugin, async () => {
                     await this.plugin.transactionService.scanTransactions();
                     this.plugin.refreshViews();
                 }).open();
@@ -256,7 +256,7 @@ export class CostMainView extends ItemView {
 
             new TransactionList(rightCol, this.app, accountTxns, accounts, runningBalances, {
                 onTransactionClick: (txn) => {
-                    new TransactionEditModal(this.app, txn, this.plugin.transactionService, this.plugin.accountService, this.plugin.settings.customIconPath, async () => {
+                    new TransactionEditModal(this.app, txn, this.plugin.transactionService, this.plugin.accountService, this.plugin.settings.customIconPath, this.plugin, async () => {
                         await this.plugin.transactionService.scanTransactions();
                         this.plugin.refreshViews();
                     }).open();
@@ -427,7 +427,7 @@ export class CostMainView extends ItemView {
                 batchEditBtn.setText(`批量修改 (${selected.size})`);
             },
             onTransactionClick: (txn) => {
-                new TransactionEditModal(this.app, txn, this.plugin.transactionService, this.plugin.accountService, this.plugin.settings.customIconPath, async () => {
+                new TransactionEditModal(this.app, txn, this.plugin.transactionService, this.plugin.accountService, this.plugin.settings.customIconPath, this.plugin, async () => {
                     await this.plugin.transactionService.scanTransactions();
                     this.plugin.refreshViews();
                 }).open();
