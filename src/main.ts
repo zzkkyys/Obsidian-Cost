@@ -192,7 +192,7 @@ export default class CostPlugin extends Plugin {
 			new TransactionList(el, this.app, transactions, accounts, null, {
 				customIconPath: this.settings.customIconPath,
 				onTransactionClick: (txn) => {
-					new TransactionEditModal(this.app, txn, this.transactionService, this.accountService, async () => {
+					new TransactionEditModal(this.app, txn, this.transactionService, this.accountService, this.settings.customIconPath, this, async () => {
 						await this.transactionService.scanTransactions();
 						this.refreshViews();
 					}).open();
@@ -271,10 +271,10 @@ export default class CostPlugin extends Plugin {
 					persons: []
 				};
 
-				new TransactionEditModal(this.app, txn, this.transactionService, this.accountService, async () => {
+				new TransactionEditModal(this.app, txn, this.transactionService, this.accountService, this.settings.customIconPath, this, async () => {
 					await this.transactionService.scanTransactions();
 					this.refreshViews();
-				}).open();
+				}, true).open();
 			},
 		});
 	}

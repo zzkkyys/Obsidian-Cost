@@ -10,13 +10,17 @@ export interface CostPluginSettings {
 	transactionsPath: string;
 	/** 自定义图标文件夹路径 */
 	customIconPath: string;
+	expenseCategories: string[];
+	incomeCategories: string[];
 }
 
 export const DEFAULT_SETTINGS: CostPluginSettings = {
 	financePath: "Finance",
 	accountsPath: "Finance/Accounts",
 	transactionsPath: "Finance/Transactions",
-	customIconPath: "Finance/Icons"
+	customIconPath: "Finance/Icons",
+	expenseCategories: ["办公", "餐饮", "订阅", "度假", "对齐", "服饰", "服务器", "购物", "还款", "交通", "科研", "快递", "人生", "日用", "生活", "数码", "水果", "通信", "维修", "闲鱼", "学习", "医疗", "意外", "饮食", "娱乐", "住房", "转账"],
+	incomeCategories: ["工资", "奖金", "理财", "收回", "退款", "意外", "悦刻", "闲鱼"]
 };
 
 export class CostSettingTab extends PluginSettingTab {
