@@ -37,6 +37,8 @@ export interface TransactionInfo {
     payee: string;
     /** 地址 */
     address: string;
+    latitude?: number;
+    longitude?: number;
     /** 摘要 */
     memo: string;
     /** 备注 */
@@ -150,6 +152,8 @@ export class TransactionService {
             to: fm.to || "",
             payee: fm.payee || "",
             address: (fm as any).address || "",
+            latitude: (fm as any).latitude,
+            longitude: (fm as any).longitude,
             memo: fm.memo || "",
             note: (fm as any).note || "",
             persons: fm.persons || [],
@@ -405,6 +409,8 @@ export class TransactionService {
             if (data.payee !== undefined) fm.payee = data.payee;
             if (data.memo !== undefined) fm.memo = data.memo;
             if (data.address !== undefined) (fm as any).address = data.address;
+            if (data.latitude !== undefined) (fm as any).latitude = data.latitude;
+            if (data.longitude !== undefined) (fm as any).longitude = data.longitude;
             if (data.persons !== undefined) fm.persons = data.persons;
             // Handle complex fields if necessary
         });
@@ -444,6 +450,8 @@ from:
 to: 
 payee: 
 address: 
+latitude: 
+longitude: 
 persons: []
 memo: 
 type: txn

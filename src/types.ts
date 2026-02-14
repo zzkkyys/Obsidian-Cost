@@ -41,6 +41,10 @@ export interface TransactionFrontmatter {
     payee: string;
     /** 地址 */
     address?: string;
+    /** 纬度 */
+    latitude?: number;
+    /** 经度 */
+    longitude?: number;
     memo: string;
     /** 备注 */
     note?: string;

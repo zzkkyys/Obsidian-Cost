@@ -1632,13 +1632,13 @@ Obsidian Cost Plugin Styles
 
 .cost-add-txn-modal .modal-content {
 	background: #f6f6f7;
-	padding: 14px 14px 12px;
+	padding: 10px 10px 12px;
 }
 
 .cost-add-txn-page {
 	display: flex;
 	flex-direction: column;
-	gap: 14px;
+	gap: 10px;
 	padding: 0;
 }
 
@@ -1658,8 +1658,8 @@ Obsidian Cost Plugin Styles
 	background: transparent;
 	color: var(--text-normal);
 	border-radius: 10px;
-	padding: 8px 4px;
-	font-size: 14px;
+	padding: 6px 4px;
+	font-size: 13px;
 	font-weight: 600;
 	cursor: pointer;
 }
@@ -1674,31 +1674,31 @@ Obsidian Cost Plugin Styles
 	border: none;
 	background: #f6f6f7;
 	border-radius: 16px;
-	padding: 6px 2px 4px;
+	padding: 4px 2px;
 }
 
 .cost-add-txn-section-title {
 	font-size: 13px;
 	font-weight: 600;
 	color: var(--text-muted);
-	margin-bottom: 10px;
+	margin-bottom: 6px;
 }
 
 .cost-add-txn-category-grid {
 	display: grid;
 	grid-template-columns: repeat(7, minmax(0, 1fr));
-	gap: 8px;
+	gap: 4px;
 }
 
 .cost-add-txn-category-item {
 	border: 1px solid transparent;
 	background: transparent;
 	border-radius: 14px;
-	padding: 8px 4px;
+	padding: 4px 2px;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 8px;
+	gap: 4px;
 	cursor: pointer;
 }
 
@@ -1712,8 +1712,8 @@ Obsidian Cost Plugin Styles
 }
 
 .cost-add-txn-category-icon {
-	width: 36px;
-	height: 36px;
+	width: 32px;
+	height: 32px;
 	border-radius: 999px;
 	display: flex;
 	align-items: center;
@@ -1741,7 +1741,7 @@ Obsidian Cost Plugin Styles
 }
 
 .cost-add-txn-category-label {
-	font-size: 13px;
+	font-size: 11px;
 	font-weight: 500;
 	text-align: center;
 	color: #3f3f46;
@@ -1846,10 +1846,10 @@ Obsidian Cost Plugin Styles
 }
 
 .cost-add-txn-fields {
-	margin-top: 10px;
+	margin-top: 6px;
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 10px;
+	gap: 8px;
 }
 
 .cost-add-txn-field {
@@ -1876,16 +1876,27 @@ Obsidian Cost Plugin Styles
 	padding: 10px 12px;
 }
 
+
 .cost-add-txn-footer {
-	padding-top: 2px;
+	padding-top: 6px;
+	display: flex;
+	gap: 12px;
 }
 
 .cost-add-txn-save-btn {
-	width: 100%;
+	flex: 1;
+	width: auto;
+	/* Override 100% */
 	border-radius: 12px;
-	height: 42px;
-	font-size: 15px;
+	height: 36px;
+	font-size: 14px;
 	font-weight: 600;
+}
+
+.cost-add-txn-delete-btn {
+	height: 36px;
+	border-radius: 12px;
+	flex-shrink: 0;
 }
 
 @media (max-width: 768px) {
@@ -2616,7 +2627,7 @@ Obsidian Cost Plugin Styles
 	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 12px;
-	margin: 16px 0;
+	margin: 8px 0;
 	overflow: hidden;
 	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
@@ -2624,7 +2635,7 @@ Obsidian Cost Plugin Styles
 .cost-fused-amount-row {
 	display: flex;
 	align-items: center;
-	padding: 16px 16px 8px 16px;
+	padding: 8px 12px 4px 12px;
 	background: var(--background-primary);
 }
 
@@ -2639,7 +2650,7 @@ Obsidian Cost Plugin Styles
 
 .cost-fused-amount-input {
 	flex: 1;
-	font-size: 36px;
+	font-size: 30px;
 	font-weight: 700;
 	color: var(--color-red);
 	border: none !important;
@@ -2659,7 +2670,7 @@ Obsidian Cost Plugin Styles
 .cost-fused-meta-row {
 	display: flex;
 	align-items: center;
-	padding: 8px 16px 12px 16px;
+	padding: 4px 12px 8px 12px;
 	gap: 12px;
 	background: var(--background-primary);
 }
@@ -2794,14 +2805,14 @@ Obsidian Cost Plugin Styles
 .cost-helper-chip {
 	display: flex;
 	align-items: center;
-	height: 28px;
-	padding: 0 10px;
-	border-radius: 14px;
+	height: 24px;
+	padding: 0 8px;
+	border-radius: 12px;
 	/* Fully rounded pill */
 	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
 	color: var(--text-muted);
-	font-size: 12px;
+	font-size: 11px;
 	cursor: pointer;
 	transition: all 0.2s ease;
 	user-select: none;
@@ -2850,4 +2861,59 @@ Obsidian Cost Plugin Styles
 
 .cost-helper-chip.has-value .cost-chip-close:hover {
 	background: rgba(255, 255, 255, 0.2);
+}
+
+/* Fused Card Address Button */
+.cost-fused-card {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+}
+
+.cost-fused-address-btn {
+	align-self: flex-end;
+	margin-bottom: 0;
+	width: auto;
+	max-width: 100%;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 10px;
+	color: var(--text-muted);
+	cursor: pointer;
+	background: var(--background-primary-alt);
+	border: 1px solid var(--background-modifier-border);
+	padding: 2px 6px;
+	border-radius: 10px;
+	transition: all 0.2s ease;
+	z-index: 10;
+}
+
+.cost-fused-address-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.cost-fused-address-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.cost-fused-address-icon svg {
+	width: 13px;
+	height: 13px;
+}
+
+.cost-fused-address-text {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.cost-fused-address-btn.is-loading {
+	opacity: 0.7;
+	pointer-events: none;
 }

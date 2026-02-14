@@ -151,6 +151,8 @@ export class TransactionEditModal extends Modal {
         let to = this.txn.to || "";
         let payee = this.txn.payee || "";
         let address = this.txn.address || "";
+        let latitude = this.txn.latitude;
+        let longitude = this.txn.longitude;
         let memo = this.txn.memo || this.txn.note || "";
         let personsStr = (this.txn.persons || []).join(", ");
         let discount = this.txn.discount || 0;
@@ -558,148 +560,9 @@ export class TransactionEditModal extends Modal {
 
 
 
-        // Address Chip
-        const addressChip = createHelperChip("map-pin", "地址", () => {
-            // Check if address exists, if so, ask to edit or locate again?
-            // For simplicity, always try locate first, but maybe we want a menu?
-            // "Click to Locate. Long click or right click to Edit?"
-            // Let's make it: If empty -> Locate. If has value -> Edit (Prompt).
-
-            if (address && address.trim() !== "") {
-                const promptModal = new Modal(this.app);
-                promptModal.titleEl.setText("编辑地址");
-                const inputEl = promptModal.contentEl.createEl("input", {
-                    type: "text",
-                    attr: { style: "width: 100%; margin-bottom: 12px;" }
-                });
-                inputEl.value = address;
-                inputEl.focus();
-
-                const btnContainer = promptModal.contentEl.createDiv({ attr: { style: "display: flex; justify-content: flex-end; gap: 8px;" } });
-                const cancelBtn = btnContainer.createEl("button", { text: "取消" });
-                cancelBtn.onclick = () => promptModal.close();
-                const confirmBtn = btnContainer.createEl("button", { text: "确定", cls: "mod-cta" });
-                confirmBtn.onclick = () => {
-                    address = inputEl.value;
-                    updateTopHelperChips();
-                    promptModal.close();
-                };
-                inputEl.onkeydown = (e) => { if (e.key === "Enter") confirmBtn.click(); };
-                promptModal.open();
-                return;
-            }
-
-            // Try to get geolocation
-            if (!navigator.geolocation) {
-                new Notice("当前环境不支持获取地理位置");
-                return;
-            }
-
-            const btn = addressChip.chip;
-            const originalText = addressChip.textSpan.getText();
-            addressChip.textSpan.setText("定位中...");
-            btn.addClass("is-loading");
-
-            navigator.geolocation.getCurrentPosition(async (position) => {
-                const { latitude, longitude } = position.coords;
-                // Reverse Geocoding using OpenStreetMap Nominatim
-                try {
-                    const response = await requestUrl({
-                        url: `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
-                        headers: { "Accept-Language": "zh-CN" }
-                    });
-                    if (response.status !== 200) throw new Error("Address lookup failed");
-
-                    const data = response.json;
-                    console.log("[Obsidian Cost] Reverse Geocoding Result:", data);
-                    const addr = data.address;
-                    // Construct a complete Chinese-style address: Province -> City -> District -> Town -> Village
-                    let fullAddress = "";
-                    if (addr.state) fullAddress += addr.state;
-                    if (addr.city && addr.city !== addr.state) fullAddress += addr.city;
-                    if (addr.city_district) fullAddress += addr.city_district;
-                    if (addr.county && addr.county !== addr.city_district) fullAddress += addr.county;
-
-                    if (addr.town) fullAddress += addr.town;
-                    if (addr.village) fullAddress += addr.village;
-                    if (addr.hamlet) fullAddress += addr.hamlet;
-
-                    if (addr.road) fullAddress += addr.road;
-                    if (addr.neighbourhood) fullAddress += addr.neighbourhood;
-                    if (addr.residential) fullAddress += addr.residential;
-
-                    if (addr.building || addr.amenity) {
-                        const building = addr.building || addr.amenity;
-                        if (!fullAddress.includes(building)) fullAddress += building;
-                    }
-
-                    // Fallback to display_name if construction failed, but display_name is usually comma separated
-                    address = fullAddress || data.display_name;
-                    new Notice("已定位: " + address);
-                } catch (e) {
-                    console.error("Reverse geocoding failed", e);
-                    address = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-                    new Notice("已获取坐标 (地址解析失败)");
-                }
-
-                addressChip.textSpan.setText(originalText);
-                btn.removeClass("is-loading");
-                updateTopHelperChips();
-            }, (err) => {
-                console.warn("[Obsidian Cost] Geolocation error:", err);
-                console.log(`Error Code: ${err.code}, Message: ${err.message}`);
-
-                new Notice(`定位超时/失败 (Code ${err.code})，尝试网络定位...`);
-
-                // Fallback to IP Geolocation
-                // Using ipapi.co (Free tier, CORS might block standard fetch, use Obsidian requestUrl to bypass)
-                requestUrl({ url: "https://ipapi.co/json/" })
-                    .then(res => {
-                        if (res.status !== 200) throw new Error("IP API failed with status " + res.status);
-                        return res.json;
-                    })
-                    .then(data => {
-                        console.log("[Obsidian Cost] IP Location success:", data);
-                        const city = data.city || "";
-                        const region = data.region || "";
-                        const country = data.country_name || "";
-
-                        let ipAddr = city;
-                        if (region && region !== city) ipAddr += `, ${region}`;
-                        if (!ipAddr) ipAddr = country;
-
-                        if (ipAddr) {
-                            address = ipAddr;
-                            new Notice("已通过网络定位: " + address);
-                        } else {
-                            throw new Error("Empty IP location data");
-                        }
-                    })
-                    .catch(ipErr => {
-                        console.error("[Obsidian Cost] IP Location failed:", ipErr);
-                        new Notice("定位完全失败，请手动输入地址");
-                    })
-                    .finally(() => {
-                        addressChip.textSpan.setText(originalText);
-                        btn.removeClass("is-loading");
-                        updateTopHelperChips();
-                    });
-
-            }, {
-                enableHighAccuracy: true,
-                timeout: 15000,
-                maximumAge: 0
-            });
-
-        }, () => {
-            address = "";
-            updateTopHelperChips();
-        });
-
         // Helper to update chip states
         const updateTopHelperChips = () => {
             // Source Account Logic
-            // Shows for: Expense (Pay From), Transfer (From), Repayment (Pay From)
             const showSource = type === "支出" || type === "转账" || type === "还款";
             sourceAccountChip.chip.style.display = showSource ? "flex" : "none";
 
@@ -712,35 +575,24 @@ export class TransactionEditModal extends Modal {
             sourceAccountChip.chip.toggleClass("has-value", Boolean(from));
 
             // Target Account Logic
-            // Shows for: Income (Deposit To), Transfer (To), Repayment (Repay To)
             const showTarget = type === "收入" || type === "转账" || type === "还款";
             targetAccountChip.chip.style.display = showTarget ? "flex" : "none";
 
             let targetLabel = "账户";
             if (type === "收入") targetLabel = "入账账户";
             if (type === "转账") targetLabel = "转入账户";
-            if (type === "还款") targetLabel = "还款目标"; // e.g. Credit Card
+            if (type === "还款") targetLabel = "还款目标";
 
             targetAccountChip.textSpan.setText(to || targetLabel);
             targetAccountChip.chip.toggleClass("has-value", Boolean(to));
 
-
             // Payee
-            // Hide Payee for Transfer? Usually Transfer implies Account to Account, but maybe user wants to note something.
-            // For Repayment, usually Account to Account (Credit Card).
-            // Let's keep Payee always available or just for Expense/Income?
-            // User requested "Add two account buttons for Transfer/Repayment".
-            // Typically Payee is hidden for Transfer.
             payeeChip.textSpan.setText(payee || "商家");
             payeeChip.chip.toggleClass("has-value", Boolean(payee));
-            payeeChip.chip.style.display = (type === "转账") ? "none" : "flex"; // Hide payee for transfer based on common logic, or keep? Let's hide to reduce clutter if 2 acc buttons appear.
+            payeeChip.chip.style.display = (type === "转账") ? "none" : "flex";
 
             // Tags
             tagsChip.chip.toggleClass("has-value", Boolean(personsStr && personsStr.length > 0));
-
-            // Address
-            addressChip.textSpan.setText(address || "地址");
-            addressChip.chip.toggleClass("has-value", Boolean(address));
 
             // Discount / Refund Toggle
             const showDiscount = type === "支出" || type === "还款";
@@ -752,6 +604,91 @@ export class TransactionEditModal extends Modal {
 
         // --- Fused Card Section ---
         const fusedCard = page.createDiv({ cls: "cost-fused-card" });
+
+        // Address Button (Top Right)
+        const addressBtn = fusedCard.createDiv({ cls: "cost-fused-address-btn" });
+        const addressIcon = addressBtn.createSpan({ cls: "cost-fused-address-icon" });
+        setIcon(addressIcon, "map-pin");
+        const addressText = addressBtn.createSpan({ cls: "cost-fused-address-text" });
+        addressText.setText(address && address.trim() !== "" ? address : "定位");
+
+        const fetchLocation = () => {
+            if (!navigator.geolocation) {
+                new Notice("当前环境不支持获取地理位置");
+                return;
+            }
+
+            addressBtn.addClass("is-loading");
+            addressText.setText("定位中...");
+
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                const { latitude: lat, longitude: lng } = position.coords;
+                latitude = lat;
+                longitude = lng;
+
+                try {
+                    const response = await requestUrl({
+                        url: `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+                        headers: { "Accept-Language": "zh-CN" }
+                    });
+
+                    if (response.status === 200) {
+                        const data = response.json;
+                        const addr = data.address;
+                        let fullAddress = "";
+                        if (addr.state) fullAddress += addr.state;
+                        if (addr.city && addr.city !== addr.state) fullAddress += addr.city;
+                        if (addr.city_district) fullAddress += addr.city_district;
+                        if (addr.county && addr.county !== addr.city_district) fullAddress += addr.county;
+                        if (addr.town) fullAddress += addr.town;
+                        if (addr.village) fullAddress += addr.village;
+
+                        if (addr.building || addr.amenity) {
+                            const building = addr.building || addr.amenity;
+                            if (!fullAddress.includes(building)) fullAddress += building;
+                        }
+
+                        address = fullAddress || data.display_name;
+                        new Notice("已定位: " + address);
+                        addressText.setText(address);
+                    }
+                } catch (e) {
+                    console.error("Reverse geocoding failed", e);
+                    address = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                    addressText.setText("已获取坐标");
+                }
+                addressBtn.removeClass("is-loading");
+            }, (err) => {
+                console.warn(err);
+                // Fallback IP
+                requestUrl({ url: "https://ipapi.co/json/" }).then(res => {
+                    if (res.status === 200) return res.json;
+                    throw new Error("IP API failed");
+                }).then(data => {
+                    let ipAddr = data.city || data.country_name || "未知位置";
+                    if (data.region && data.region !== data.city) ipAddr += `, ${data.region}`;
+                    address = ipAddr;
+                    if (data.latitude && data.longitude) {
+                        latitude = data.latitude;
+                        longitude = data.longitude;
+                    }
+                    new Notice("已通过网络定位: " + address);
+                    addressText.setText(address);
+                }).catch(() => {
+                    new Notice("定位完全失败");
+                    addressText.setText("定位失败");
+                }).finally(() => {
+                    addressBtn.removeClass("is-loading");
+                });
+            }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+        };
+
+        addressBtn.onclick = () => fetchLocation();
+
+        // Auto-fetch logic
+        if (this.isNewTransaction && (!address || address.trim() === "")) {
+            window.setTimeout(() => fetchLocation(), 500);
+        }
 
         // Row 1: Amount
         const amountRow = fusedCard.createDiv({ cls: "cost-fused-amount-row" });
@@ -823,6 +760,30 @@ export class TransactionEditModal extends Modal {
         const summary = page.createDiv({ cls: "cost-add-txn-summary" });
 
         const footer = page.createDiv({ cls: "cost-add-txn-footer" });
+
+        if (!this.isNewTransaction) {
+            const deleteBtn = footer.createEl("button", {
+                text: "删除",
+                cls: "mod-warning cost-add-txn-delete-btn",
+                attr: { type: "button" }
+            });
+            deleteBtn.onclick = async () => {
+                if (window.confirm("确定要删除这条交易记录吗？")) {
+                    try {
+                        this.service.removeTransaction(this.file.path);
+                        await this.app.vault.delete(this.file);
+                        new Notice("交易已删除");
+                        this.isSaved = true;
+                        this.onSave?.();
+                        this.close();
+                    } catch (e) {
+                        new Notice("删除失败: " + e);
+                        console.error(e);
+                    }
+                }
+            };
+        }
+
         const saveBtn = footer.createEl("button", { text: "保存交易", cls: "mod-cta cost-add-txn-save-btn", attr: { type: "button" } });
         saveBtn.onclick = async () => {
             if (type === "转账" && (!from || !to)) {
@@ -849,7 +810,9 @@ export class TransactionEditModal extends Modal {
                 payee,
                 memo,
                 persons: personsArray,
-                address
+                address,
+                latitude,
+                longitude
             } as Partial<TransactionFrontmatter>);
 
             this.isSaved = true;
@@ -863,8 +826,6 @@ export class TransactionEditModal extends Modal {
             typeButtons.forEach((btn, key) => {
                 btn.toggleClass("is-active", key === type);
             });
-            renderCategoryGrid();
-
             renderCategoryGrid();
             updateTopHelperChips();
             refreshSummary();
