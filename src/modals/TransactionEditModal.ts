@@ -1,7 +1,7 @@
-import { App, Modal, TFile, setIcon, Menu, Notice, requestUrl, normalizePath } from "obsidian";
+import { App, Modal, TFile, setIcon, Menu, Notice, requestUrl, normalizePath, FuzzySuggestModal, AbstractInputSuggest } from "obsidian";
 import { TransactionInfo, TransactionService } from "../services/transactionService";
 import { AccountService } from "../services/accountService";
-import { TransactionFrontmatter } from "../types";
+import { TransactionFrontmatter, AccountInfo } from "../types";
 import CostPlugin from "../main";
 
 type TxnType = "支出" | "收入" | "转账" | "还款";
@@ -139,7 +139,7 @@ export class TransactionEditModal extends Modal {
         };
 
 
-        const accounts = this.accountService.getAccounts().map((a) => a.fileName);
+        // const accounts = this.accountService.getAccounts().map((a) => a.fileName); // Removed as we use getAccounts() in modal
         const personsOptions = Array.from(new Set(this.service.getTransactions().flatMap((t) => t.persons || []).filter((n) => n && n.trim() !== ""))).sort();
 
         let date = this.txn.date || this.getTodayDate();
@@ -417,19 +417,196 @@ export class TransactionEditModal extends Modal {
         };
 
         // 1. Account Chip
+        // 1. Account Chip
+        // Reverted to Menu based on user feedback, but with icons.
+
+        const showAccountMenu = (anchor: HTMLElement, onSelect: (acc: AccountInfo) => void) => {
+            const accounts = this.accountService.getAccounts();
+            if (accounts.length === 0) {
+                new Notice("没有可选账户");
+                return;
+            }
+
+            // Create a custom menu-like dropdown
+            const menuEl = document.body.createDiv({ cls: "menu cost-account-dropdown-menu" });
+            const rect = anchor.getBoundingClientRect();
+
+            // Basic positioning (can be improved)
+            menuEl.style.position = "absolute";
+            menuEl.style.left = `${rect.left}px`;
+            menuEl.style.top = `${rect.bottom + 4}px`;
+            menuEl.style.zIndex = "var(--layer-menu)"; // Use Obsidian var
+            menuEl.style.minWidth = "180px";
+            menuEl.style.maxHeight = "300px"; // Limit height
+            menuEl.style.overflowY = "auto"; // Add scroll
+            menuEl.style.backgroundColor = "var(--background-primary)";
+            menuEl.style.border = "1px solid var(--background-modifier-border)";
+            menuEl.style.borderRadius = "6px";
+            menuEl.style.boxShadow = "var(--shadow-s)";
+            menuEl.style.padding = "4px";
+
+            // Click outside to close
+            const closeMenu = () => {
+                menuEl.remove();
+                document.removeEventListener("click", outsideClickListener);
+            };
+            const outsideClickListener = (e: MouseEvent) => {
+                if (!menuEl.contains(e.target as Node) && e.target !== anchor && !anchor.contains(e.target as Node)) {
+                    closeMenu();
+                }
+            };
+            // Delay adding listener to avoid immediate close
+            setTimeout(() => document.addEventListener("click", outsideClickListener), 0);
+
+            accounts.forEach(acc => {
+                const itemEl = menuEl.createDiv({ cls: "menu-item" });
+                itemEl.style.display = "flex";
+                itemEl.style.alignItems = "center";
+                itemEl.style.padding = "6px 10px";
+                itemEl.style.cursor = "pointer";
+                itemEl.style.borderRadius = "4px";
+                itemEl.style.gap = "8px"; // Spacing between icon and text
+
+                // Hover effect logic
+                itemEl.onmouseenter = () => {
+                    itemEl.style.backgroundColor = "var(--background-modifier-hover)";
+                };
+                itemEl.onmouseleave = () => {
+                    itemEl.style.backgroundColor = "transparent";
+                };
+
+                // Icon container
+                const iconContainer = itemEl.createDiv({ cls: "menu-item-icon" });
+                iconContainer.style.display = "flex";
+                iconContainer.style.alignItems = "center";
+                iconContainer.style.justifyContent = "center";
+                iconContainer.style.width = "20px";
+                iconContainer.style.height = "20px";
+
+                // Icon Logic
+                let iconSrc: string | null = null;
+                // 1. Check frontmatter [[Icon]]
+                // 1. Check frontmatter [[Icon]]
+                // Usually format: "[[Icon.png]]" or "Icon.png"
+                if (acc.icon) {
+                    // Remove wikilinks syntax if present
+                    const raw = acc.icon.replace(/\[\[|\]\]/g, "");
+                    // e.g. "交通银行.png"
+
+                    // Use metadataCache to resolve link against account file path
+                    // This handles relative paths, or just global search
+                    const f = this.app.metadataCache.getFirstLinkpathDest(raw, acc.path);
+
+                    if (f instanceof TFile) {
+                        iconSrc = this.app.vault.getResourcePath(f);
+                    } else {
+                        // Fallback: try manual search if getFirstLinkpathDest fails for some reason
+                        const display = raw;
+                        // Try exact match first
+                        let fManual = this.app.vault.getAbstractFileByPath(normalizePath(display));
+                        if (fManual instanceof TFile) {
+                            iconSrc = this.app.vault.getResourcePath(fManual);
+                        } else if (!display.includes(".")) {
+                            // Try adding .png
+                            fManual = this.app.vault.getAbstractFileByPath(normalizePath(display + ".png"));
+                            if (fManual instanceof TFile) iconSrc = this.app.vault.getResourcePath(fManual);
+                        }
+
+                        // Double Fallback: try finding in customIconPath/accounts/ or customIconPath/
+                        if (!iconSrc && this.customIconPath) {
+                            const p = normalizePath(`${this.customIconPath}/accounts/${display}`);
+                            const f2 = this.app.vault.getAbstractFileByPath(p);
+                            if (f2 instanceof TFile) iconSrc = this.app.vault.getResourcePath(f2);
+
+                            if (!iconSrc) {
+                                const p2 = normalizePath(`${this.customIconPath}/${display}`);
+                                const f3 = this.app.vault.getAbstractFileByPath(p2);
+                                if (f3 instanceof TFile) iconSrc = this.app.vault.getResourcePath(f3);
+                            }
+                        }
+                    }
+                }
+                // 2. Custom Icon Path
+                // 2. Custom Icon Path
+                if (!iconSrc) {
+                    // Prepare candidate paths
+                    const candidateBasePaths = new Set<string>();
+                    if (this.customIconPath) {
+                        candidateBasePaths.add(this.customIconPath);
+                        candidateBasePaths.add(this.customIconPath.replace("Icons", "icons"));
+                        candidateBasePaths.add(this.customIconPath.replace("icons", "Icons"));
+                    }
+                    // Fallbacks
+                    candidateBasePaths.add("Finance/Icons");
+                    candidateBasePaths.add("Finance/icons");
+
+                    const extensions = ["png", "jpg", "jpeg", "svg", "webp"];
+                    const names = [acc.fileName, acc.displayName];
+
+                    outerLoop:
+                    for (const basePath of candidateBasePaths) {
+                        if (!basePath) continue;
+                        for (const name of names) {
+                            if (!name) continue;
+                            for (const ext of extensions) {
+                                // Strategy A: basePath/accounts/name.ext
+                                let p = normalizePath(`${basePath}/accounts/${name}.${ext}`);
+                                let f = this.app.vault.getAbstractFileByPath(p);
+                                if (f instanceof TFile) {
+                                    iconSrc = this.app.vault.getResourcePath(f);
+                                    break outerLoop;
+                                }
+
+                                // Strategy B: basePath/name.ext (flat)
+                                p = normalizePath(`${basePath}/${name}.${ext}`);
+                                f = this.app.vault.getAbstractFileByPath(p);
+                                if (f instanceof TFile) {
+                                    iconSrc = this.app.vault.getResourcePath(f);
+                                    break outerLoop;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (iconSrc) {
+                    const img = iconContainer.createEl("img");
+                    img.src = iconSrc;
+                    img.style.width = "100%";
+                    img.style.height = "100%";
+                    img.style.objectFit = "contain";
+                } else {
+                    setIcon(iconContainer, "wallet"); // Standard fallback
+                    const svg = iconContainer.querySelector("svg");
+                    if (svg) {
+                        svg.style.width = "16px";
+                        svg.style.height = "16px";
+                        svg.style.color = "var(--text-muted)";
+                    }
+                }
+
+                // Title
+                const titleEl = itemEl.createDiv({ cls: "menu-item-title", text: acc.displayName || acc.fileName });
+                titleEl.style.flex = "1";
+                titleEl.style.whiteSpace = "nowrap";
+                titleEl.style.overflow = "hidden";
+                titleEl.style.textOverflow = "ellipsis";
+                titleEl.style.color = "var(--text-normal)";
+
+                itemEl.onclick = () => {
+                    onSelect(acc);
+                    closeMenu();
+                };
+            });
+        };
+
         // 1. Source Account Chip (Out)
         const sourceAccountChip = createHelperChip("arrow-up-circle", "转出", () => {
-            const menu = new Menu();
-            if (accounts.length === 0) { new Notice("没有可选账户"); return; }
-            accounts.forEach((acc) => {
-                menu.addItem((item) => item.setTitle(acc).onClick(() => {
-                    from = acc;
-                    updateTopHelperChips();
-                    refreshSummary();
-                }));
+            showAccountMenu(sourceAccountChip.chip, (acc) => {
+                from = acc.fileName;
+                updateTopHelperChips();
+                refreshSummary();
             });
-            const rect = sourceAccountChip.chip.getBoundingClientRect();
-            menu.showAtPosition({ x: rect.left, y: rect.bottom + 4 });
         }, () => {
             from = "";
             updateTopHelperChips();
@@ -438,17 +615,11 @@ export class TransactionEditModal extends Modal {
 
         // 2. Target Account Chip (In)
         const targetAccountChip = createHelperChip("arrow-down-circle", "转入", () => {
-            const menu = new Menu();
-            if (accounts.length === 0) { new Notice("没有可选账户"); return; }
-            accounts.forEach((acc) => {
-                menu.addItem((item) => item.setTitle(acc).onClick(() => {
-                    to = acc;
-                    updateTopHelperChips();
-                    refreshSummary();
-                }));
+            showAccountMenu(targetAccountChip.chip, (acc) => {
+                to = acc.fileName;
+                updateTopHelperChips();
+                refreshSummary();
             });
-            const rect = targetAccountChip.chip.getBoundingClientRect();
-            menu.showAtPosition({ x: rect.left, y: rect.bottom + 4 });
         }, () => {
             to = "";
             updateTopHelperChips();
@@ -791,33 +962,98 @@ export class TransactionEditModal extends Modal {
                 return;
             }
 
+            const rawAmounts = amountInput.value.split(/[\s,，]+/).filter((s) => s.trim().length > 0);
+            if (rawAmounts.length === 0) {
+                new Notice("请输入有效金额");
+                return;
+            }
+
             const personsArray = personsStr
                 .split(/[,，]/)
                 .map((s) => s.trim())
                 .filter((s) => s.length > 0);
 
-            await this.service.updateTransaction(this.file, {
-                date: dateInput.value || date,
-                time: this.normalizeTime(timeInput.value),
-                amount: this.parseAmount(amountInput.value),
-                discount: type === "还款" ? discount : 0,
-                refund: type === "支出" ? refund : 0,
-                refund_to: type === "支出" ? refundTo : "",
-                txn_type: type,
-                category,
-                from,
-                to,
-                payee,
-                memo,
-                persons: personsArray,
-                address,
-                latitude,
-                longitude
-            } as Partial<TransactionFrontmatter>);
+            let savedCount = 0;
+            // Base Date/Time for increments
+            const baseTimeStr = this.normalizeTime(timeInput.value || time);
+            const [bH, bM] = baseTimeStr.split(":").map(Number);
+            const baseDateObj = new Date(dateInput.value || date);
+            // If date string is YYYY-MM-DD, parsing might follow UTC or local depending on browser, usually UTC unless time provided?
+            // Safer to use manual parsing
+            const [y, m, d] = (dateInput.value || date).split("-").map(Number);
+            if (y && m !== undefined && d !== undefined) {
+                baseDateObj.setFullYear(y, m - 1, d);
+            }
+            // If valid seconds are present in user input (unlikely for <input type="time"> on some browsers, but possible in logic)
+            // or if we want to default to current seconds for "now".
+            // However, the issue described is "starts from 00". This is because we set seconds to 0 below.
+            // Let's try to preserve parsed seconds if available, or use current seconds if the time matches "now" roughly,
+            // or just random/sequential seconds?
+            // The user wants "real seconds". 
+            // If the user picked a time manually, it usually doesn't have seconds (HH:MM). 
+            // If the user didn't pick, it uses `time` (which might be HH:MM).
+
+            // If we want "real seconds", we should check if the input time matches the current time's HH:MM. 
+            // If so, use current seconds. 
+            // OTHERWISE, we default to 00.
+
+            const now = new Date();
+            const currentSeconds = now.getSeconds();
+            const isCurrentMinute = (bH === now.getHours() && bM === now.getMinutes());
+
+            // If input matches current time (HH:MM), use current seconds. Otherwise 0.
+            const startSeconds = isCurrentMinute ? currentSeconds : 0;
+
+            baseDateObj.setHours(bH || 0, bM || 0, startSeconds, 0);
+
+            for (let i = 0; i < rawAmounts.length; i++) {
+                const rawAmt = rawAmounts[i];
+                if (!rawAmt) continue;
+                const amtVal = this.parseAmount(rawAmt);
+                if (amtVal <= 0) continue;
+
+                // Adjust time by i seconds
+                const currentDescDate = new Date(baseDateObj.getTime() + i * 1000);
+                const cHours = String(currentDescDate.getHours()).padStart(2, '0');
+                const cMinutes = String(currentDescDate.getMinutes()).padStart(2, '0');
+                const cSeconds = String(currentDescDate.getSeconds()).padStart(2, '0');
+                // Standard time format is HH:MM or HH:MM:SS
+                const timeWithSeconds = `${cHours}:${cMinutes}:${cSeconds}`;
+
+                const txnData: Partial<TransactionFrontmatter> = {
+                    date: dateInput.value || date,
+                    time: timeWithSeconds,
+                    amount: amtVal,
+                    discount: type === "还款" ? discount : 0,
+                    refund: type === "支出" ? refund : 0,
+                    refund_to: type === "支出" ? refundTo : "",
+                    txn_type: type,
+                    category,
+                    from,
+                    to,
+                    payee,
+                    memo,
+                    persons: personsArray,
+                    address,
+                    latitude,
+                    longitude
+                };
+
+                if (i === 0 && this.file) {
+                    await this.service.updateTransaction(this.file, txnData);
+                } else {
+                    const newFile = await this.service.createTransaction();
+                    await this.service.updateTransaction(newFile, txnData);
+                }
+                savedCount++;
+            }
 
             this.isSaved = true;
             this.onSave?.();
             this.close();
+            if (savedCount > 1) {
+                new Notice(`成功保存 ${savedCount} 条交易`);
+            }
         };
 
 
@@ -948,7 +1184,7 @@ export class TransactionEditModal extends Modal {
         if (!this.customIconPath?.trim()) return null;
 
         const distinctNames = new Set<string>();
-        // 1. Raw name (supports subfolders if category has slashes, e.g. "Food/Lunch")
+        // 1. Raw name (e.g. "Food/Lunch")
         distinctNames.add(category);
 
         // 2. Dash-separated name (e.g. "Food-Lunch")
@@ -962,15 +1198,51 @@ export class TransactionEditModal extends Modal {
         // 4. Parent name (e.g. "Food")
         if (parts.length > 1) distinctNames.add(parts[0]!);
 
+        // Prepare candidate base paths
+        const basePaths = new Set<string>();
+        // Add root custom path
+        basePaths.add(this.customIconPath);
+
+        // Add variations with "icons" or "Icons" if custom path ends with neither or one
+        // Better: explicitly check subfolders "icons", "Icons", "transactions", "Transactions" inside customIconPath
+        // And check variations of customIconPath itself (case sensitivity issue on some file systems or manual entry)
+
+        // If user set "Finance/icons", also try "Finance/Icons"
+        if (this.customIconPath.includes("icons")) {
+            basePaths.add(this.customIconPath.replace("icons", "Icons"));
+        } else if (this.customIconPath.includes("Icons")) {
+            basePaths.add(this.customIconPath.replace("Icons", "icons"));
+        }
+
+        // Add specific subdirectories for organization
+        // The user showed structure: icons/transactions/...
+        // So we should look into: customIconPath/transactions/
+
+        // We will build a list of "search roots"
+        const searchRoots = Array.from(basePaths);
+        // Add subfolders to search roots
+        const subfolders = ["transactions", "Transactions", "icons", "Icons"];
+
+        const allSearchPaths = new Set<string>(searchRoots);
+
+        for (const root of searchRoots) {
+            for (const sub of subfolders) {
+                allSearchPaths.add(`${root}/${sub}`);
+            }
+        }
+
         const extensions = ["png", "jpg", "jpeg", "svg", "webp", "gif"];
 
-        for (const name of distinctNames) {
-            if (!name) continue;
-            for (const ext of extensions) {
-                const path = normalizePath(`${this.customIconPath}/${name}.${ext}`);
-                const file = this.app.vault.getAbstractFileByPath(path);
-                if (file instanceof TFile) {
-                    return this.app.vault.getResourcePath(file);
+        for (const basePath of allSearchPaths) {
+            for (const name of distinctNames) {
+                if (!name) continue;
+                for (const ext of extensions) {
+                    // Normalize path handles separators
+                    const path = normalizePath(`${basePath}/${name}.${ext}`);
+                    const file = this.app.vault.getAbstractFileByPath(path);
+                    if (file instanceof TFile) {
+                        return this.app.vault.getResourcePath(file);
+                    }
                 }
             }
         }
@@ -1103,5 +1375,91 @@ export class TransactionEditModal extends Modal {
         }
         const color = palette[hash % palette.length];
         return color ?? "#eaf3f3";
+    }
+}
+
+class AccountPickerModal extends FuzzySuggestModal<AccountInfo> {
+    private iconPath: string;
+    private accounts: AccountInfo[];
+    private onChoose: (item: AccountInfo) => void;
+
+    constructor(app: App, items: AccountInfo[], iconPath: string, onChoose: (item: AccountInfo) => void) {
+        super(app);
+        this.accounts = items;
+        this.iconPath = iconPath;
+        this.onChoose = onChoose;
+    }
+
+    onChooseItem(item: AccountInfo, evt: MouseEvent | KeyboardEvent): void {
+        this.onChoose(item);
+    }
+
+    getItems(): AccountInfo[] {
+        return this.accounts;
+    }
+
+    getItemText(item: AccountInfo): string {
+        return item.displayName || item.fileName;
+    }
+
+    renderSuggestion(item: any, el: HTMLElement) {
+        super.renderSuggestion(item, el);
+        // Prepend icon
+        const acc = item.item as AccountInfo;
+
+        // Try to resolve icon path
+        let iconSrc: string | null = null;
+
+        // 1. Check if icon is defined in frontmatter
+        if (acc.icon) {
+            // If it's a full path or link
+            const display = acc.icon.replace(/\[\[|\]\]/g, "");
+            // normalize
+            const path = normalizePath(display);
+            // check if file exists
+            // but `iconPath` might be relative to vault root so let's try to find it
+            // If user uses [[Icon.png]], obsidian resolves it relative to note usually.
+
+            // Simplest: Check if file exists at `iconPath +/accounts/ + name`
+        }
+
+        // 2. Check conventions: customIconPath/accounts/Name.png
+        if (!iconSrc && this.iconPath) {
+            const extensions = ["png", "jpg", "jpeg", "svg", "webp"];
+            const name = acc.fileName;
+
+            for (const ext of extensions) {
+                const p = normalizePath(`${this.iconPath}/accounts/${name}.${ext}`);
+                const f = this.app.vault.getAbstractFileByPath(p);
+                if (f instanceof TFile) {
+                    iconSrc = this.app.vault.getResourcePath(f);
+                    break;
+                }
+            }
+        }
+
+        const iconEl = createDiv({ cls: "cost-account-picker-icon" });
+        iconEl.style.width = "20px";
+        iconEl.style.height = "20px";
+        iconEl.style.marginRight = "8px";
+        iconEl.style.display = "inline-flex";
+        iconEl.style.alignItems = "center";
+        iconEl.style.justifyContent = "center";
+
+        if (iconSrc) {
+            const img = iconEl.createEl("img");
+            img.src = iconSrc;
+            img.style.width = "100%";
+            img.style.height = "100%";
+            img.style.objectFit = "contain";
+        } else {
+            setIcon(iconEl, "wallet");
+            const svg = iconEl.querySelector("svg");
+            if (svg) { svg.style.width = "16px"; svg.style.height = "16px"; }
+        }
+
+        el.prepend(iconEl);
+        el.style.display = "flex";
+        el.style.alignItems = "center";
     }
 }
