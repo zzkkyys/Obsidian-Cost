@@ -883,7 +883,7 @@ export class TransactionEditModal extends Modal {
         // Time Pill
         const timePill = metaRow.createDiv({ cls: "cost-time-pill" });
         setIcon(timePill, "clock");
-        const timeText = timePill.createSpan({ text: (time || "00:00").slice(0, 5) });
+        const timeText = timePill.createSpan({ text: this.normalizeTime(time || "00:00:00") });
 
         // Memo Input
         const memoInput = metaRow.createEl("input", {
@@ -913,12 +913,12 @@ export class TransactionEditModal extends Modal {
 
         const timeInput = dateTimeRow.createEl("input", {
             cls: "cost-add-txn-time-input",
-            attr: { type: "time" }
+            attr: { type: "time", step: "1" }
         });
-        timeInput.value = (time || "00:00").slice(0, 5);
+        timeInput.value = this.normalizeTime(time || "00:00:00");
         timeInput.onchange = () => {
             time = this.normalizeTime(timeInput.value);
-            timeText.setText(time.slice(0, 5));
+            timeText.setText(time);
         };
 
         // Date/Time Toggle Logic
@@ -976,35 +976,14 @@ export class TransactionEditModal extends Modal {
             let savedCount = 0;
             // Base Date/Time for increments
             const baseTimeStr = this.normalizeTime(timeInput.value || time);
-            const [bH, bM] = baseTimeStr.split(":").map(Number);
+            const [bH, bM, bS] = baseTimeStr.split(":").map(Number);
             const baseDateObj = new Date(dateInput.value || date);
-            // If date string is YYYY-MM-DD, parsing might follow UTC or local depending on browser, usually UTC unless time provided?
-            // Safer to use manual parsing
             const [y, m, d] = (dateInput.value || date).split("-").map(Number);
             if (y && m !== undefined && d !== undefined) {
                 baseDateObj.setFullYear(y, m - 1, d);
             }
-            // If valid seconds are present in user input (unlikely for <input type="time"> on some browsers, but possible in logic)
-            // or if we want to default to current seconds for "now".
-            // However, the issue described is "starts from 00". This is because we set seconds to 0 below.
-            // Let's try to preserve parsed seconds if available, or use current seconds if the time matches "now" roughly,
-            // or just random/sequential seconds?
-            // The user wants "real seconds". 
-            // If the user picked a time manually, it usually doesn't have seconds (HH:MM). 
-            // If the user didn't pick, it uses `time` (which might be HH:MM).
 
-            // If we want "real seconds", we should check if the input time matches the current time's HH:MM. 
-            // If so, use current seconds. 
-            // OTHERWISE, we default to 00.
-
-            const now = new Date();
-            const currentSeconds = now.getSeconds();
-            const isCurrentMinute = (bH === now.getHours() && bM === now.getMinutes());
-
-            // If input matches current time (HH:MM), use current seconds. Otherwise 0.
-            const startSeconds = isCurrentMinute ? currentSeconds : 0;
-
-            baseDateObj.setHours(bH || 0, bM || 0, startSeconds, 0);
+            baseDateObj.setHours(bH || 0, bM || 0, bS || 0, 0);
 
             for (let i = 0; i < rawAmounts.length; i++) {
                 const rawAmt = rawAmounts[i];
@@ -1278,13 +1257,15 @@ export class TransactionEditModal extends Modal {
 
     private getCurrentTime(): string {
         const now = new Date();
-        return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+        return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
     }
 
     private normalizeTime(value: string): string {
         const v = value.trim();
-        if (!v) return "00:00";
-        return v.length === 5 ? `${v}:00` : v;
+        if (!v) return "00:00:00";
+        // HH:MM -> HH:MM:00
+        if (v.length === 5 && v[2] === ":") return `${v}:00`;
+        return v;
     }
 
     private getCategoryIcon(category: string): string {
