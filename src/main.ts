@@ -9,6 +9,7 @@ import { AccountsSidebarView, ACCOUNTS_SIDEBAR_VIEW_TYPE } from "./views/account
 import { CostMainView, COST_MAIN_VIEW_TYPE } from "./views/costMainView";
 import { CostStatsView, COST_STATS_VIEW_TYPE } from "./views/costStatsView";
 import { TransactionList } from "./components/lists/TransactionList";
+import { generateSkillPrompt } from "./skill/transactionSkill";
 
 export default class CostPlugin extends Plugin {
 	settings: CostPluginSettings;
@@ -275,6 +276,31 @@ export default class CostPlugin extends Plugin {
 					await this.transactionService.scanTransactions();
 					this.refreshViews();
 				}, true).open();
+			},
+		});
+
+		this.addCommand({
+			id: "copy-ai-skill-prompt",
+			name: "复制 AI 记账 Skill 到剪贴板",
+			callback: async () => {
+				try {
+					// 确保数据是最新的
+					await this.accountService.scanAccounts();
+					await this.transactionService.scanTransactions();
+
+					const skillPrompt = generateSkillPrompt(
+						this.accountService,
+						this.transactionService,
+						this.settings.transactionsPath,
+						(this.app.vault.adapter as any).basePath || ""
+					);
+
+					await navigator.clipboard.writeText(skillPrompt);
+					new Notice("AI 记账 Skill 已复制到剪贴板 ✓");
+				} catch (e) {
+					console.error("[Cost Plugin] 复制 Skill 失败:", e);
+					new Notice("复制失败: " + e);
+				}
 			},
 		});
 	}
