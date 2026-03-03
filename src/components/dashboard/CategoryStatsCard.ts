@@ -1,4 +1,4 @@
-import { Menu, setIcon } from "obsidian";
+import { Menu } from "obsidian";
 import { BaseComponent } from '../BaseComponent';
 import { TransactionInfo } from '../../services/transactionService';
 import { PieChart } from '../charts/PieChart';

@@ -1,5 +1,5 @@
 import { Notice, Plugin, parseYaml, debounce, TFile } from "obsidian";
-import { DEFAULT_SETTINGS, CostPluginSettings, CostSettingTab } from "./settings";
+import { DEFAULT_SETTINGS, CostPluginSettings, CostSettingTab, KnownAccountInfo } from "./settings";
 import { AccountService } from "./services/accountService";
 import { TransactionService, TransactionInfo } from "./services/transactionService";
 import { TransactionEditModal } from "./modals/TransactionEditModal";
@@ -41,7 +41,10 @@ export default class CostPlugin extends Plugin {
 		this.app.workspace.onLayoutReady(async () => {
 			const accounts = await this.accountService.scanAccounts();
 			const transactions = await this.transactionService.scanTransactions();
-			console.log("[Cost Plugin] 扫描到账户:", accounts.length, "交易:", transactions.length);
+			console.debug("[Cost Plugin] 扫描到账户:", accounts.length, "交易:", transactions.length);
+
+			// 同步已知数据到 data.json
+			await this.syncKnownData();
 
 			// 注册 Properties 面板的账户建议（用于 Live Preview 模式）
 			registerPropertyWidgets(this.app, this.accountService);
@@ -131,7 +134,7 @@ export default class CostPlugin extends Plugin {
 
 			// 1. Try to parse YAML config from source
 			try {
-				const config = parseYaml(source);
+				const config = parseYaml(source) as Record<string, unknown> | null;
 				if (typeof config === "object" && config !== null) {
 					if (config.date) targetDate = String(config.date);
 					if (config.startDate) startDate = String(config.startDate);
@@ -287,12 +290,11 @@ export default class CostPlugin extends Plugin {
 					// 确保数据是最新的
 					await this.accountService.scanAccounts();
 					await this.transactionService.scanTransactions();
+					await this.syncKnownData();
 
 					const skillPrompt = generateSkillPrompt(
-						this.accountService,
-						this.transactionService,
 						this.settings.transactionsPath,
-						(this.app.vault.adapter as any).basePath || ""
+						(this.app.vault.adapter as { basePath?: string }).basePath || ""
 					);
 
 					await navigator.clipboard.writeText(skillPrompt);
@@ -404,6 +406,60 @@ export default class CostPlugin extends Plugin {
 		// 重新扫描数据
 		await this.accountService.scanAccounts();
 		await this.transactionService.scanTransactions();
+		await this.syncKnownData();
 		this.refreshViews();
+	}
+
+	/**
+	 * 同步账户/分类/商家/标签到 data.json（不含余额等隐私数据）
+	 */
+	async syncKnownData() {
+		const accounts = this.accountService.getAccounts();
+		const transactions = this.transactionService.getTransactions();
+
+		// 1. 账户（去除余额等敏感信息）
+		this.settings.knownAccounts = accounts.map(acc => ({
+			fileName: acc.fileName,
+			displayName: acc.displayName,
+			accountKind: acc.accountKind || "",
+			institution: acc.institution || "",
+			currency: acc.currency || "CNY",
+		} as KnownAccountInfo));
+
+		// 2. 分类（按交易类型分组）
+		const categoryMap: Record<string, Set<string>> = {};
+		for (const txn of transactions) {
+			if (txn.category && txn.txnType) {
+				if (!categoryMap[txn.txnType]) categoryMap[txn.txnType] = new Set();
+				categoryMap[txn.txnType]!.add(String(txn.category));
+			}
+		}
+		this.settings.knownCategories = {};
+		for (const [type, cats] of Object.entries(categoryMap)) {
+			this.settings.knownCategories[type] = Array.from(cats).sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+		}
+
+		// 3. 商家
+		const payeeSet = new Set<string>();
+		for (const txn of transactions) {
+			if (txn.payee && String(txn.payee).trim()) {
+				payeeSet.add(String(txn.payee).trim());
+			}
+		}
+		this.settings.knownPayees = Array.from(payeeSet).sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+
+		// 4. 标签/人物
+		const personSet = new Set<string>();
+		for (const txn of transactions) {
+			if (txn.persons) {
+				txn.persons.forEach((p: string) => {
+					if (p && String(p).trim()) personSet.add(String(p).trim());
+				});
+			}
+		}
+		this.settings.knownPersons = Array.from(personSet).sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+
+		// 保存到 data.json
+		await this.saveData(this.settings);
 	}
 }

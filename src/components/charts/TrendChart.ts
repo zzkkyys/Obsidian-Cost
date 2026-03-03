@@ -25,7 +25,7 @@ export class TrendChart extends BaseComponent {
         const chartWidth = width - padding.left - padding.right;
         const chartHeight = height - padding.top - padding.bottom;
 
-        const widget = document.createElement('div');
+        const _widget = document.createElement('div');
         // If container already has class, we might strictly append, 
         // but here we follow the previous pattern of creating a wrapper or appending SVG direct.
         // Let's stick to appending chart container.

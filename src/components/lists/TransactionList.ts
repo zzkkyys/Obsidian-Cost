@@ -2,7 +2,7 @@ import { App, setIcon, TFile } from "obsidian";
 import { BaseComponent } from '../BaseComponent';
 import { TransactionInfo } from '../../services/transactionService';
 import { AccountInfo } from '../../types';
-import { formatThousands, normalizeBalance } from '../../utils/format';
+import { formatThousands } from '../../utils/format';
 
 export interface TransactionListOptions {
     onTransactionClick?: (txn: TransactionInfo) => void;
@@ -107,7 +107,7 @@ export class TransactionList extends BaseComponent {
 
         } catch (e) {
             console.error("[Cost] Render error:", e);
-            listContainer.createDiv({ cls: "cost-error-message", text: `渲染错误: ${e}` });
+            listContainer.createDiv({ cls: "cost-error-message", text: `渲染错误: ${String(e)}` });
         }
     }
 
@@ -214,7 +214,7 @@ export class TransactionList extends BaseComponent {
         if (!hasCustomImage) {
             try {
                 setIcon(iconEl, iconName);
-            } catch (e) {
+            } catch (_e) {
                 // Fallback if icon not found or setIcon fails
                 iconEl.setText("💰");
             }
@@ -288,7 +288,7 @@ export class TransactionList extends BaseComponent {
             const changes = this.runningBalances.get(txn.path);
             if (changes && changes.size > 0) {
                 const balanceContainer = amountCol.createDiv({ cls: "cost-txn-balance-col-wrapper" });
-                for (const [accountName, bal] of changes) {
+                for (const [_accountName, bal] of changes) {
                     const span = balanceContainer.createDiv({ cls: "cost-txn-balance-change-right" });
                     const diff = bal.after - bal.before;
                     const diffStr = diff > 0 ? `+${formatThousands(diff, 2)}` : formatThousands(diff, 2);
@@ -309,7 +309,7 @@ export class TransactionList extends BaseComponent {
                 // Default: Open file
                 const file = this.app.vault.getAbstractFileByPath(txn.path);
                 if (file instanceof TFile) {
-                    this.app.workspace.getLeaf().openFile(file);
+                    void this.app.workspace.getLeaf().openFile(file);
                 }
             }
         });

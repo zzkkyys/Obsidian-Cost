@@ -53,7 +53,7 @@ export class TopPayeesWidget extends BaseComponent {
             const bar = barContainer.createDiv({ cls: "cost-payee-bar" });
             bar.style.width = `${percent}%`;
             if (this.type === '收入') {
-                bar.style.backgroundColor = "var(--color-green)";
+                bar.addClass("cost-payee-bar-income");
             }
 
             // 3. Amount

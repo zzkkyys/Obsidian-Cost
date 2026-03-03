@@ -47,7 +47,7 @@ export class KPICardsWidget extends BaseComponent {
         const percent = lastMonthExpense > 0 ? (diff / lastMonthExpense * 100).toFixed(0) : "0";
         // Expense increase is "bad" usually, but technically "up"
         const trendIcon = diff > 0 ? "⬆" : "⬇";
-        const trendClass = diff > 0 ? "cost-trend-up" : "cost-trend-down"; // up might be red for expense?
+        const _trendClass = diff > 0 ? "cost-trend-up" : "cost-trend-down"; // up might be red for expense?
 
         // Usually for expense: Higher = Red, Lower = Green
         // But let's stick to neutral up/down classes or reuse balance classes

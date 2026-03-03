@@ -1,6 +1,14 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import CostPlugin from "./main";
 
+export interface KnownAccountInfo {
+	fileName: string;
+	displayName: string;
+	accountKind: string;
+	institution: string;
+	currency: string;
+}
+
 export interface CostPluginSettings {
 	/** Finance 文件夹路径 */
 	financePath: string;
@@ -12,6 +20,14 @@ export interface CostPluginSettings {
 	customIconPath: string;
 	expenseCategories: string[];
 	incomeCategories: string[];
+	/** AI Skill 用：已知账户列表（不含余额） */
+	knownAccounts: KnownAccountInfo[];
+	/** AI Skill 用：已知分类（按交易类型分组） */
+	knownCategories: Record<string, string[]>;
+	/** AI Skill 用：已知商家 */
+	knownPayees: string[];
+	/** AI Skill 用：已知标签/人物 */
+	knownPersons: string[];
 }
 
 export const DEFAULT_SETTINGS: CostPluginSettings = {
@@ -20,7 +36,11 @@ export const DEFAULT_SETTINGS: CostPluginSettings = {
 	transactionsPath: "Finance/Transactions",
 	customIconPath: "Finance/Icons",
 	expenseCategories: ["办公", "餐饮", "订阅", "度假", "对齐", "服饰", "服务器", "购物", "还款", "交通", "科研", "快递", "人生", "日用", "生活", "数码", "水果", "通信", "维修", "闲鱼", "学习", "医疗", "意外", "饮食", "娱乐", "住房", "转账"],
-	incomeCategories: ["工资", "奖金", "理财", "收回", "退款", "意外", "悦刻", "闲鱼"]
+	incomeCategories: ["工资", "奖金", "理财", "收回", "退款", "意外", "悦刻", "闲鱼"],
+	knownAccounts: [],
+	knownCategories: {},
+	knownPayees: [],
+	knownPersons: [],
 };
 
 export class CostSettingTab extends PluginSettingTab {

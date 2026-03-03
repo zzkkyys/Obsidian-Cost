@@ -23,11 +23,11 @@ export class BalanceCard extends BaseComponent {
         // Calculate balances
         // 1. Initial balances from accounts
         const accountBalances = new Map<string, number>();
-        let totalOpeningBalance = 0;
+        let _totalOpeningBalance = 0;
 
         for (const acc of this.accounts) {
             accountBalances.set(acc.fileName, acc.openingBalance);
-            totalOpeningBalance += acc.openingBalance;
+            _totalOpeningBalance += acc.openingBalance;
         }
 
         // 2. Apply transactions

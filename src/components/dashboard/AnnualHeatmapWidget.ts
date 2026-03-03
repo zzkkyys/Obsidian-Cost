@@ -70,7 +70,7 @@ export class AnnualHeatmapWidget extends BaseComponent {
             rect.setAttribute("rx", "2");
 
             // Color Logic
-            let fill = "var(--background-secondary)"; // Empty color
+            let _fill = "var(--background-secondary)"; // Empty color
             if (val > 0) {
                 // Levels: 1-4
                 const ratio = val / (maxVal || 1);

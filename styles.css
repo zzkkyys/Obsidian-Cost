@@ -2361,6 +2361,10 @@ Obsidian Cost Plugin Styles
 	border-radius: 3px;
 }
 
+.cost-payee-bar-income {
+	background: var(--color-green);
+}
+
 .cost-payee-amount {
 	font-family: var(--font-monospace);
 	color: var(--text-muted);

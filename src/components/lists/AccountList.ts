@@ -1,7 +1,6 @@
 import { App } from "obsidian";
 import { BaseComponent } from '../BaseComponent';
 import { AccountInfo } from '../../types';
-import { TransactionService } from '../../services/transactionService';
 import { formatThousands } from '../../utils/format';
 
 export interface AccountListOptions {

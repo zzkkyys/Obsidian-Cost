@@ -1,4 +1,4 @@
-import { App, setIcon, TFile } from "obsidian";
+import { setIcon, TFile } from "obsidian";
 import { BaseComponent } from "../BaseComponent";
 import { TransactionInfo } from "../../services/transactionService";
 import { formatCompact, formatThousands } from "../../utils/format";
