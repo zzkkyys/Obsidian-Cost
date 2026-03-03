@@ -1,4 +1,4 @@
-import { App, Modal, TFile, setIcon, Menu, Notice, requestUrl, normalizePath, FuzzySuggestModal, AbstractInputSuggest } from "obsidian";
+import { App, Modal, TFile, setIcon, Menu, Notice, requestUrl, normalizePath, FuzzySuggestModal, AbstractInputSuggest, Platform } from "obsidian";
 import { TransactionInfo, TransactionService } from "../services/transactionService";
 import { AccountService } from "../services/accountService";
 import { TransactionFrontmatter, AccountInfo } from "../types";
@@ -783,20 +783,12 @@ export class TransactionEditModal extends Modal {
         const addressText = addressBtn.createSpan({ cls: "cost-fused-address-text" });
         addressText.setText(address && address.trim() !== "" ? address : "定位");
 
-        const fetchLocation = () => {
-            if (!navigator.geolocation) {
-                new Notice("当前环境不支持获取地理位置");
-                return;
-            }
-
+        const fetchLocation = async () => {
             addressBtn.addClass("is-loading");
             addressText.setText("定位中...");
 
-            navigator.geolocation.getCurrentPosition(async (position) => {
-                const { latitude: lat, longitude: lng } = position.coords;
-                latitude = lat;
-                longitude = lng;
-
+            // 反向地理编码辅助函数
+            const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
                 try {
                     const response = await requestUrl({
                         url: `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
@@ -807,51 +799,274 @@ export class TransactionEditModal extends Modal {
                         const data = response.json;
                         const addr = data.address;
                         let fullAddress = "";
+
+                        // 省/州
                         if (addr.state) fullAddress += addr.state;
+                        // 市
                         if (addr.city && addr.city !== addr.state) fullAddress += addr.city;
+                        // 区
                         if (addr.city_district) fullAddress += addr.city_district;
                         if (addr.county && addr.county !== addr.city_district) fullAddress += addr.county;
+                        // 镇/乡
                         if (addr.town) fullAddress += addr.town;
                         if (addr.village) fullAddress += addr.village;
+                        // 街道/社区/小区
+                        if (addr.suburb && !fullAddress.includes(addr.suburb)) fullAddress += addr.suburb;
+                        if (addr.neighbourhood && !fullAddress.includes(addr.neighbourhood)) fullAddress += addr.neighbourhood;
+                        if (addr.quarter && !fullAddress.includes(addr.quarter)) fullAddress += addr.quarter;
+                        // 路名
+                        if (addr.road && !fullAddress.includes(addr.road)) fullAddress += addr.road;
+                        // 门牌号
+                        if (addr.house_number) fullAddress += addr.house_number + "号";
+                        // 建筑/商铺/设施
+                        const poi = addr.building || addr.amenity || addr.shop || addr.leisure || addr.tourism;
+                        if (poi && !fullAddress.includes(poi)) fullAddress += poi;
 
-                        if (addr.building || addr.amenity) {
-                            const building = addr.building || addr.amenity;
-                            if (!fullAddress.includes(building)) fullAddress += building;
-                        }
-
-                        address = fullAddress || data.display_name;
-                        new Notice("已定位: " + address);
-                        addressText.setText(address);
+                        return fullAddress || data.display_name || "";
                     }
                 } catch (e) {
                     console.error("Reverse geocoding failed", e);
-                    address = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-                    addressText.setText("已获取坐标");
                 }
-                addressBtn.removeClass("is-loading");
-            }, (err) => {
-                console.warn(err);
-                // Fallback IP
-                requestUrl({ url: "https://ipapi.co/json/" }).then(res => {
-                    if (res.status === 200) return res.json;
-                    throw new Error("IP API failed");
-                }).then(data => {
-                    let ipAddr = data.city || data.country_name || "未知位置";
-                    if (data.region && data.region !== data.city) ipAddr += `, ${data.region}`;
-                    address = ipAddr;
-                    if (data.latitude && data.longitude) {
-                        latitude = data.latitude;
-                        longitude = data.longitude;
+                return "";
+            };
+
+            // IP定位回退方案
+            const fallbackToIP = async () => {
+                try {
+                    const res = await requestUrl({ url: "https://ipapi.co/json/" });
+                    if (res.status === 200) {
+                        const data = res.json;
+                        let ipAddr = data.city || data.country_name || "未知位置";
+                        if (data.region && data.region !== data.city) ipAddr += `, ${data.region}`;
+                        address = ipAddr;
+                        if (data.latitude && data.longitude) {
+                            latitude = data.latitude;
+                            longitude = data.longitude;
+                        }
+                        new Notice("已通过网络定位: " + address);
+                        addressText.setText(address);
+                    } else {
+                        throw new Error("IP API failed");
                     }
-                    new Notice("已通过网络定位: " + address);
-                    addressText.setText(address);
-                }).catch(() => {
+                } catch {
                     new Notice("定位完全失败");
                     addressText.setText("定位失败");
-                }).finally(() => {
-                    addressBtn.removeClass("is-loading");
+                }
+                addressBtn.removeClass("is-loading");
+            };
+
+            // 搜索附近 POI（通过 Overpass API）
+            const fetchNearbyPOIs = async (lat: number, lng: number): Promise<string[]> => {
+                try {
+                    const query = `[out:json][timeout:10];(node(around:500,${lat},${lng})["name"]["amenity"];node(around:500,${lat},${lng})["name"]["shop"];node(around:500,${lat},${lng})["name"]["leisure"];node(around:500,${lat},${lng})["name"]["tourism"];way(around:300,${lat},${lng})["name"]["building"];);out center 10;`;
+                    const response = await requestUrl({
+                        url: `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`
+                    });
+                    if (response.status === 200) {
+                        const data = response.json;
+                        const names: string[] = [];
+                        const seen = new Set<string>();
+                        for (const el of (data.elements || [])) {
+                            const name = el.tags?.name;
+                            if (name && !seen.has(name)) {
+                                seen.add(name);
+                                names.push(name);
+                            }
+                            if (names.length >= 10) break;
+                        }
+                        return names;
+                    }
+                } catch (e) {
+                    console.warn("Nearby POI search failed", e);
+                }
+                return [];
+            };
+
+            // 坐标获取成功后的处理：显示地址选择菜单
+            const onCoordsObtained = async (lat: number, lng: number) => {
+                latitude = lat;
+                longitude = lng;
+
+                // 并行获取反向地理编码和附近 POI
+                const [geocoded, nearbyPois] = await Promise.all([
+                    reverseGeocode(lat, lng),
+                    fetchNearbyPOIs(lat, lng)
+                ]);
+
+                addressBtn.removeClass("is-loading");
+
+                // 构建候选地址列表
+                const options: string[] = [];
+                if (geocoded) options.push(geocoded);
+                nearbyPois.forEach(poi => {
+                    // 将 POI 名拼到基础地址后面作为完整选项
+                    const fullOption = geocoded ? `${geocoded} · ${poi}` : poi;
+                    if (!options.includes(fullOption)) options.push(fullOption);
                 });
-            }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+
+                // 如果只有 0 或 1 个选项，直接使用
+                if (options.length <= 1) {
+                    address = geocoded || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                    addressText.setText(geocoded ? address : "已获取坐标");
+                    if (geocoded) new Notice("已定位: " + address);
+                    return;
+                }
+
+                // 多个选项：弹出选择菜单
+                const menu = new Menu();
+                menu.addItem(item => item
+                    .setTitle("📍 选择您的位置")
+                    .setDisabled(true)
+                );
+                menu.addSeparator();
+
+                options.forEach((opt, idx) => {
+                    menu.addItem(item => {
+                        const title = idx === 0 ? `📌 ${opt}` : `📎 ${opt}`;
+                        item.setTitle(title).onClick(() => {
+                            address = opt;
+                            addressText.setText(address);
+                            new Notice("已选择: " + address);
+                        });
+                    });
+                });
+
+                menu.addSeparator();
+                menu.addItem(item => item
+                    .setTitle("✏️ 手动输入地址")
+                    .onClick(() => {
+                        const promptModal = new Modal(this.app);
+                        promptModal.titleEl.setText("输入地址");
+                        const inputEl = promptModal.contentEl.createEl("input", {
+                            type: "text",
+                            attr: { style: "width: 100%; margin-bottom: 12px;", placeholder: "输入具体地址" }
+                        });
+                        inputEl.value = address;
+                        inputEl.focus();
+
+                        const btnContainer = promptModal.contentEl.createDiv({ attr: { style: "display: flex; justify-content: flex-end; gap: 8px;" } });
+                        btnContainer.createEl("button", { text: "取消" }).onclick = () => promptModal.close();
+                        const confirmBtn = btnContainer.createEl("button", { text: "确定", cls: "mod-cta" });
+                        confirmBtn.onclick = () => {
+                            address = inputEl.value.trim();
+                            addressText.setText(address || "定位");
+                            promptModal.close();
+                        };
+                        inputEl.onkeydown = (e) => { if (e.key === "Enter") confirmBtn.click(); };
+                        promptModal.open();
+                    })
+                );
+
+                // 在地址按钮下方弹出菜单
+                const rect = addressBtn.getBoundingClientRect();
+                menu.showAtPosition({ x: rect.left, y: rect.bottom + 4 });
+
+                // 同时先设置第一个选项作为默认
+                address = options[0] || "";
+                addressText.setText(address);
+            };
+
+            // Windows 平台：使用临时 PowerShell 脚本调用 WinRT Location API
+            if (Platform.isWin && Platform.isDesktop) {
+                try {
+                    const { exec } = require("child_process") as typeof import("child_process");
+                    const fs = require("fs") as typeof import("fs");
+                    const os = require("os") as typeof import("os");
+                    const path = require("path") as typeof import("path");
+
+                    const scriptPath = path.join(os.tmpdir(), `obsidian_geo_${Date.now()}.ps1`);
+
+                    const psContent = [
+                        'try {',
+                        '    # Load WinRT support from .NET runtime directory',
+                        '    $runtimeDir = [System.Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory()',
+                        '    $dllPath = Join-Path $runtimeDir "System.Runtime.WindowsRuntime.dll"',
+                        '    if (Test-Path $dllPath) {',
+                        '        [System.Reflection.Assembly]::LoadFrom($dllPath) | Out-Null',
+                        '    } else {',
+                        '        Add-Type -AssemblyName System.Runtime.WindowsRuntime -ErrorAction Stop',
+                        '    }',
+                        '',
+                        '    # Load Geolocator WinRT type',
+                        '    [Windows.Devices.Geolocation.Geolocator,Windows.Devices.Geolocation,ContentType=WindowsRuntime] | Out-Null',
+                        '',
+                        '    # Setup async helper for WinRT',
+                        '    $asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {',
+                        "        $_.Name -eq 'AsTask' -and",
+                        '        $_.GetParameters().Count -eq 1 -and',
+                        "        $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1'",
+                        '    })[0]',
+                        '',
+                        '    if ($null -eq $asTaskGeneric) { throw "AsTask method not found" }',
+                        '',
+                        '    Function Await($WinRtTask, $ResultType) {',
+                        '        $asTask = $asTaskGeneric.MakeGenericMethod($ResultType)',
+                        '        $netTask = $asTask.Invoke($null, @($WinRtTask))',
+                        '        $netTask.Wait(-1) | Out-Null',
+                        '        $netTask.Result',
+                        '    }',
+                        '',
+                        '    $gl = New-Object Windows.Devices.Geolocation.Geolocator',
+                        '    $gl.DesiredAccuracyInMeters = 10',
+                        '    $pos = Await ($gl.GetGeopositionAsync()) ([Windows.Devices.Geolocation.Geoposition])',
+                        '    $coord = $pos.Coordinate.Point.Position',
+                        '    @{lat=$coord.Latitude;lng=$coord.Longitude} | ConvertTo-Json -Compress',
+                        '} catch {',
+                        '    Write-Error $_.Exception.Message',
+                        '    exit 1',
+                        '}',
+                    ].join('\n');
+
+                    fs.writeFileSync(scriptPath, psContent, { encoding: 'utf8' });
+
+                    await new Promise<void>((resolve) => {
+                        exec(
+                            `powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${scriptPath}"`,
+                            { timeout: 25000 },
+                            async (error: Error | null, stdout: string, stderr: string) => {
+                                // 清理临时脚本
+                                try { fs.unlinkSync(scriptPath); } catch { /* ignore */ }
+
+                                if (!error && stdout && stdout.trim()) {
+                                    try {
+                                        const result = JSON.parse(stdout.trim());
+                                        if (result.lat && result.lng) {
+                                            await onCoordsObtained(result.lat, result.lng);
+                                            resolve();
+                                            return;
+                                        }
+                                    } catch (parseErr) {
+                                        console.warn("PowerShell location parse error:", parseErr);
+                                    }
+                                }
+                                console.warn("Windows Location API failed, falling back to IP", error, stderr);
+                                await fallbackToIP();
+                                resolve();
+                            }
+                        );
+                    });
+                } catch (e) {
+                    console.error("Windows location error:", e);
+                    await fallbackToIP();
+                }
+            }
+            // 非 Windows 平台：使用 navigator.geolocation
+            else if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    async (position) => {
+                        await onCoordsObtained(position.coords.latitude, position.coords.longitude);
+                    },
+                    async (err) => {
+                        console.warn("Geolocation error:", err);
+                        await fallbackToIP();
+                    },
+                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+                );
+            }
+            // 完全不支持 geolocation
+            else {
+                await fallbackToIP();
+            }
         };
 
         addressBtn.onclick = () => fetchLocation();
@@ -1020,9 +1235,15 @@ export class TransactionEditModal extends Modal {
 
                 if (i === 0 && this.file) {
                     await this.service.updateTransaction(this.file, txnData);
+                    // 如果日期变更，移动文件到新日期文件夹
+                    const newDateStr = dateInput.value || date;
+                    this.file = await this.service.moveTransactionToDateFolder(this.file, newDateStr);
                 } else {
                     const newFile = await this.service.createTransaction();
                     await this.service.updateTransaction(newFile, txnData);
+                    // 新建的交易也需要移动到正确的日期文件夹
+                    const newDateStr = dateInput.value || date;
+                    await this.service.moveTransactionToDateFolder(newFile, newDateStr);
                 }
                 savedCount++;
             }

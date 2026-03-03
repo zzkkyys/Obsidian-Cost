@@ -1,4 +1,4 @@
-import { App, TFile, TFolder, CachedMetadata } from "obsidian";
+import { App, TFile, TFolder, CachedMetadata, normalizePath } from "obsidian";
 import { TransactionFrontmatter } from "../types";
 
 /**
@@ -414,6 +414,68 @@ export class TransactionService {
             if (data.persons !== undefined) fm.persons = data.persons;
             // Handle complex fields if necessary
         });
+    }
+
+    /**
+     * 获取日期对应的文件夹路径
+     * @param dateStr 日期字符串 (YYYY-MM-DD)
+     * @returns 文件夹路径 e.g. Finance/Transactions/2026/2026-03/2026-03-03
+     */
+    getDateFolderPath(dateStr: string): string {
+        const parts = dateStr.split("-");
+        const year = parts[0];
+        const month = `${parts[0]}-${parts[1]}`;
+        const day = dateStr;
+        return `${this.transactionsPath}/${year}/${month}/${day}`;
+    }
+
+    /**
+     * 当日期变更时，将交易文件移动到新日期对应的文件夹下
+     * @param file 当前交易文件
+     * @param newDate 新日期字符串 (YYYY-MM-DD)
+     * @returns 移动后的 TFile（如果路径没变则返回原文件）
+     */
+    async moveTransactionToDateFolder(file: TFile, newDate: string): Promise<TFile> {
+        const expectedFolder = this.getDateFolderPath(newDate);
+        const expectedPath = normalizePath(`${expectedFolder}/${file.name}`);
+
+        // 如果文件已在正确的文件夹中，无需移动
+        if (normalizePath(file.path) === expectedPath) {
+            return file;
+        }
+
+        // 确保目标文件夹存在
+        const parts = newDate.split("-");
+        const year = parts[0];
+        const month = `${parts[0]}-${parts[1]}`;
+        const yearly = `${this.transactionsPath}/${year}`;
+        const monthly = `${yearly}/${month}`;
+        const daily = `${monthly}/${newDate}`;
+
+        await this.ensureFolder(this.transactionsPath);
+        await this.ensureFolder(yearly);
+        await this.ensureFolder(monthly);
+        await this.ensureFolder(daily);
+
+        // 移动之前记录旧路径
+        const oldPath = file.path;
+
+        // 移动文件
+        await this.app.fileManager.renameFile(file, expectedPath);
+
+        // 更新缓存中的路径
+        const idx = this.transactionCache.findIndex(t => t.path === oldPath);
+        if (idx !== -1 && this.transactionCache[idx]) {
+            this.transactionCache[idx].path = expectedPath;
+        }
+
+        // 返回新路径的 TFile
+        const newFile = this.app.vault.getAbstractFileByPath(expectedPath);
+        if (newFile instanceof TFile) {
+            return newFile;
+        }
+        // fallback: 原文件对象的 path 会被 Obsidian 自动更新
+        return file;
     }
 
     async createTransaction(): Promise<TFile> {
