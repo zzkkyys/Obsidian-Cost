@@ -95,7 +95,7 @@ export class AccountService {
             institution: frontmatter.institution || "",
             openingBalance: frontmatter.opening_balance || 0,
             currency: frontmatter.currency || "CNY",
-            icon: (cache.frontmatter as any).icon || undefined,
+            icon: frontmatter.icon || undefined,
         };
     }
 

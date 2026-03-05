@@ -11,7 +11,6 @@ export const ACCOUNTS_SIDEBAR_VIEW_TYPE = "cost-accounts-sidebar";
  */
 export class AccountsSidebarView extends ItemView {
     private plugin: CostPlugin;
-    private iconCache: Map<string, string> = new Map();  // 图标缓存
 
     constructor(leaf: WorkspaceLeaf, plugin: CostPlugin) {
         super(leaf);
@@ -266,7 +265,14 @@ export class AccountsSidebarView extends ItemView {
         // 账户图标（优先使用自定义图标）
         const iconEl = item.createDiv({ cls: "cost-account-icon" });
         if (account.icon) {
-            this.renderCustomIcon(iconEl, account.icon);
+            const iconSrc = this.plugin.iconResolver.resolveAccountIcon(account);
+            if (iconSrc) {
+                const img = iconEl.createEl("img", { cls: "cost-account-custom-icon" });
+                img.src = iconSrc;
+                img.alt = account.displayName;
+            } else {
+                iconEl.innerHTML = this.getAccountIcon(account.accountKind);
+            }
         } else {
             iconEl.innerHTML = this.getAccountIcon(account.accountKind);
         }
@@ -342,39 +348,4 @@ export class AccountsSidebarView extends ItemView {
         return icons[accountKind] || "💰";
     }
 
-    /**
-     * 渲染自定义图标（从 wiki link 格式解析图片，带缓存）
-     */
-    private renderCustomIcon(container: HTMLElement, iconLink: string): void {
-        // 先检查缓存
-        const cachedPath = this.iconCache.get(iconLink);
-        if (cachedPath) {
-            if (cachedPath === "__default__") {
-                container.innerHTML = "💰";
-            } else {
-                const img = container.createEl("img", { cls: "cost-account-custom-icon" });
-                img.src = cachedPath;
-            }
-            return;
-        }
-
-        // 解析 [[filename.png]] 格式
-        const match = iconLink.match(/\[\[(.+?)\]\]/);
-        if (match && match[1]) {
-            const fileName: string = match[1];
-            // 使用 metadataCache 更高效
-            const imageFile = this.app.metadataCache.getFirstLinkpathDest(fileName, "");
-            if (imageFile) {
-                const resourcePath = this.app.vault.getResourcePath(imageFile);
-                this.iconCache.set(iconLink, resourcePath);  // 缓存
-                const img = container.createEl("img", { cls: "cost-account-custom-icon" });
-                img.src = resourcePath;
-                img.alt = fileName;
-                return;
-            }
-        }
-        // 如果解析失败，缓存默认值
-        this.iconCache.set(iconLink, "__default__");
-        container.innerHTML = "💰";
-    }
 }

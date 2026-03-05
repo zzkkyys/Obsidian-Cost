@@ -203,7 +203,8 @@ export class CostMainView extends ItemView {
                 }).open();
             },
             onAccountClick: (name, field, txn) => this.handleAccountClick(name),
-            customIconPath: this.plugin.settings.customIconPath
+            customIconPath: this.plugin.settings.customIconPath,
+            iconResolver: this.plugin.iconResolver
         }).mount();
     }
 
@@ -261,6 +262,7 @@ export class CostMainView extends ItemView {
                     }).open();
                 },
                 customIconPath: this.plugin.settings.customIconPath,
+                iconResolver: this.plugin.iconResolver,
                 activeAccount: this.selectedAccount?.fileName // Pass context
             }).mount();
         } else {

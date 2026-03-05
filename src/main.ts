@@ -1,6 +1,7 @@
 import { Notice, Plugin, parseYaml, debounce, TFile } from "obsidian";
 import { DEFAULT_SETTINGS, CostPluginSettings, CostSettingTab, KnownAccountInfo } from "./settings";
 import { AccountService } from "./services/accountService";
+import { IconResolver } from "./services/iconResolver";
 import { TransactionService, TransactionInfo } from "./services/transactionService";
 import { TransactionEditModal } from "./modals/TransactionEditModal";
 import { AccountSuggester } from "./suggesters/accountSuggester";
@@ -15,6 +16,7 @@ export default class CostPlugin extends Plugin {
 	settings: CostPluginSettings;
 	accountService: AccountService;
 	transactionService: TransactionService;
+	iconResolver: IconResolver;
 
 	async onload() {
 		await this.loadSettings();
@@ -22,6 +24,7 @@ export default class CostPlugin extends Plugin {
 		// 初始化服务（使用设置中的目录路径）
 		this.accountService = new AccountService(this.app, this.settings.accountsPath);
 		this.transactionService = new TransactionService(this.app, this.settings.transactionsPath);
+		this.iconResolver = new IconResolver(this.app, this.settings.customIconPath);
 
 		// 注册视图
 		this.registerView(
@@ -195,6 +198,7 @@ export default class CostPlugin extends Plugin {
 
 			new TransactionList(el, this.app, transactions, accounts, null, {
 				customIconPath: this.settings.customIconPath,
+				iconResolver: this.iconResolver,
 				onTransactionClick: (txn) => {
 					new TransactionEditModal(this.app, txn, this.transactionService, this.accountService, this.settings.customIconPath, this, async () => {
 						await this.transactionService.scanTransactions();
@@ -403,6 +407,7 @@ export default class CostPlugin extends Plugin {
 		// 更新服务的目录路径
 		this.accountService.setAccountsPath(this.settings.accountsPath);
 		this.transactionService.setTransactionsPath(this.settings.transactionsPath);
+		this.iconResolver.setCustomIconPath(this.settings.customIconPath);
 		// 重新扫描数据
 		await this.accountService.scanAccounts();
 		await this.transactionService.scanTransactions();

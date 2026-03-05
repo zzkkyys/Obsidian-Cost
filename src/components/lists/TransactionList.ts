@@ -1,4 +1,5 @@
 import { App, setIcon, TFile } from "obsidian";
+import { IconResolver } from '../../services/iconResolver';
 import { BaseComponent } from '../BaseComponent';
 import { TransactionInfo } from '../../services/transactionService';
 import { AccountInfo } from '../../types';
@@ -10,6 +11,7 @@ export interface TransactionListOptions {
     onDateClick?: (txn: TransactionInfo) => void;
     onTimeClick?: (txn: TransactionInfo) => void;
     customIconPath?: string;
+    iconResolver?: IconResolver;
     activeAccount?: string | null; // Added
 }
 
@@ -161,50 +163,13 @@ export class TransactionList extends BaseComponent {
 
         // 1. Check for custom image first (if category is set)
         let hasCustomImage = false;
-        if (txn.category && this.options.customIconPath) {
-            const catKey = (String(txn.category || "")).trim();
-            if (catKey) {
-                // Try exact match first: "Food/Breakfast" -> "Food-Breakfast.png" or "Food/Breakfast.png" (but file sys usually flat for icons?)
-                // User said: "A/B -> A-B.png"
-                // Clean path: replace / with -
-                const cleanName = catKey.replace(/\//g, "-");
-
-                // We need to look up in metadataCache if file exists
-                // Assuming icons are in 'customIconPath'
-
-                // Try png, jpg, jpeg, svg, gif
-                const extensions = ["png", "jpg", "jpeg", "svg", "webp", "gif"];
-                let foundFile: TFile | null = null;
-
-                // Try:
-                // 1. Full name with dash: "Food-Breakfast" (cleanName)
-                // 2. Parent category: "Food" (parts[0])
-                // 3. Leaf name: "Breakfast" (parts.last())
-                const parts = catKey.split("/");
-                const parent = parts.length > 1 ? parts[0] : null;
-                const leaf = parts.length > 0 ? parts[parts.length - 1] : null;
-
-                const namesToTry = [cleanName];
-                // Prioritize leaf over parent as per latest request
-                if (leaf && leaf !== cleanName && leaf !== parent) namesToTry.push(leaf);
-                if (parent && parent !== cleanName) namesToTry.push(parent);
-
-                for (const name of namesToTry) {
-                    if (!name) continue;
-                    for (const ext of extensions) {
-                        const path = `${this.options.customIconPath}/${name}.${ext}`;
-                        const file = this.app.vault.getAbstractFileByPath(path);
-                        if (file instanceof TFile) {
-                            foundFile = file;
-                            break;
-                        }
-                    }
-                    if (foundFile) break;
-                }
-
-                if (foundFile) {
+        if (txn.category) {
+            const resolver = this.options.iconResolver;
+            if (resolver) {
+                const iconSrc = resolver.resolveCategoryIcon(txn.category);
+                if (iconSrc) {
                     const img = iconEl.createEl("img");
-                    img.src = this.app.vault.getResourcePath(foundFile);
+                    img.src = iconSrc;
                     img.addClass("cost-txn-icon-img");
                     hasCustomImage = true;
                 }
@@ -318,38 +283,38 @@ export class TransactionList extends BaseComponent {
     private renderAccountIcon(container: HTMLElement, account: AccountInfo): void {
         const iconSpan = container.createSpan({ cls: "cost-txn-account-icon-small" });
 
-        if (account.icon) {
-            // Check for [[link]]
+        // 使用 IconResolver 查找自定义图标
+        const resolver = this.options.iconResolver;
+        if (resolver) {
+            const iconSrc = resolver.resolveAccountIcon(account);
+            if (iconSrc) {
+                const img = iconSpan.createEl("img", { cls: "cost-account-custom-icon-img" });
+                img.src = iconSrc;
+                return;
+            }
+        } else if (account.icon) {
+            // Fallback: 无 resolver 时尝试简单解析 wiki link
             const match = account.icon.match(/\[\[(.+?)\]\]/);
             if (match && match[1]) {
                 const fileName = match[1];
                 const imageFile = this.app.metadataCache.getFirstLinkpathDest(fileName, "");
                 if (imageFile) {
-                    const resourcePath = this.app.vault.getResourcePath(imageFile);
                     const img = iconSpan.createEl("img", { cls: "cost-account-custom-icon-img" });
-                    img.src = resourcePath;
+                    img.src = this.app.vault.getResourcePath(imageFile);
                     return;
                 }
             } else if (!account.icon.includes("[[")) {
-                // Might be emoji or plain text
                 iconSpan.setText(account.icon);
                 return;
             }
         }
 
-        // Fallback by kind
+        // Fallback: emoji by account kind
         const icons: Record<string, string> = {
-            "bank": "🏦",
-            "cash": "💵",
-            "credit": "💳",
-            "investment": "📈",
-            "wallet": "👛",
-            "prepaid": "🎫",
-            "other": "💰",
-            "alipay": "🔷",
-            "wechat": "🟢"
+            "bank": "🏦", "cash": "💵", "credit": "💳",
+            "investment": "📈", "wallet": "👛", "prepaid": "🎫",
+            "other": "💰", "alipay": "🔷", "wechat": "🟢"
         };
-        // Normalize kind?
         const kind = account.accountKind || "other";
         iconSpan.setText(icons[kind] || icons["other"] || "💰");
     }

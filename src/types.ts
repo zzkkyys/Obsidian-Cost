@@ -15,6 +15,8 @@ export interface AccountFrontmatter {
     due_day?: string;
     note?: string;
     tags?: string[];
+    /** 自定义图标（如 "[[平安银行.png]]"） */
+    icon?: string;
 }
 
 /**

@@ -1,4 +1,4 @@
-import { App, Modal, TFile, setIcon, Menu, Notice, requestUrl, normalizePath, FuzzySuggestModal, AbstractInputSuggest, Platform } from "obsidian";
+import { App, Modal, TFile, setIcon, Menu, Notice, requestUrl, normalizePath, FuzzySuggestModal, Platform } from "obsidian";
 import { TransactionInfo, TransactionService } from "../services/transactionService";
 import { AccountService } from "../services/accountService";
 import { TransactionFrontmatter, AccountInfo } from "../types";
@@ -248,7 +248,7 @@ export class TransactionEditModal extends Modal {
                 // Ensure icon color is dark enough to see against pastel background
                 iconCircle.style.color = "rgba(0,0,0,0.6)";
 
-                const iconPath = this.getCategoryImagePath(cat);
+                const iconPath = this.plugin.iconResolver.resolveCategoryIcon(cat);
                 if (iconPath) {
                     const img = iconCircle.createEl("img", { cls: "cost-add-txn-category-icon-img" });
                     img.src = iconPath;
@@ -465,9 +465,8 @@ export class TransactionEditModal extends Modal {
                 itemEl.style.padding = "6px 10px";
                 itemEl.style.cursor = "pointer";
                 itemEl.style.borderRadius = "4px";
-                itemEl.style.gap = "8px"; // Spacing between icon and text
+                itemEl.style.gap = "8px";
 
-                // Hover effect logic
                 itemEl.onmouseenter = () => {
                     itemEl.style.backgroundColor = "var(--background-modifier-hover)";
                 };
@@ -483,91 +482,8 @@ export class TransactionEditModal extends Modal {
                 iconContainer.style.width = "20px";
                 iconContainer.style.height = "20px";
 
-                // Icon Logic
-                let iconSrc: string | null = null;
-                // 1. Check frontmatter [[Icon]]
-                // 1. Check frontmatter [[Icon]]
-                // Usually format: "[[Icon.png]]" or "Icon.png"
-                if (acc.icon) {
-                    // Remove wikilinks syntax if present
-                    const raw = acc.icon.replace(/\[\[|\]\]/g, "");
-                    // e.g. "交通银行.png"
-
-                    // Use metadataCache to resolve link against account file path
-                    // This handles relative paths, or just global search
-                    const f = this.app.metadataCache.getFirstLinkpathDest(raw, acc.path);
-
-                    if (f instanceof TFile) {
-                        iconSrc = this.app.vault.getResourcePath(f);
-                    } else {
-                        // Fallback: try manual search if getFirstLinkpathDest fails for some reason
-                        const display = raw;
-                        // Try exact match first
-                        let fManual = this.app.vault.getAbstractFileByPath(normalizePath(display));
-                        if (fManual instanceof TFile) {
-                            iconSrc = this.app.vault.getResourcePath(fManual);
-                        } else if (!display.includes(".")) {
-                            // Try adding .png
-                            fManual = this.app.vault.getAbstractFileByPath(normalizePath(display + ".png"));
-                            if (fManual instanceof TFile) iconSrc = this.app.vault.getResourcePath(fManual);
-                        }
-
-                        // Double Fallback: try finding in customIconPath/accounts/ or customIconPath/
-                        if (!iconSrc && this.customIconPath) {
-                            const p = normalizePath(`${this.customIconPath}/accounts/${display}`);
-                            const f2 = this.app.vault.getAbstractFileByPath(p);
-                            if (f2 instanceof TFile) iconSrc = this.app.vault.getResourcePath(f2);
-
-                            if (!iconSrc) {
-                                const p2 = normalizePath(`${this.customIconPath}/${display}`);
-                                const f3 = this.app.vault.getAbstractFileByPath(p2);
-                                if (f3 instanceof TFile) iconSrc = this.app.vault.getResourcePath(f3);
-                            }
-                        }
-                    }
-                }
-                // 2. Custom Icon Path
-                // 2. Custom Icon Path
-                if (!iconSrc) {
-                    // Prepare candidate paths
-                    const candidateBasePaths = new Set<string>();
-                    if (this.customIconPath) {
-                        candidateBasePaths.add(this.customIconPath);
-                        candidateBasePaths.add(this.customIconPath.replace("Icons", "icons"));
-                        candidateBasePaths.add(this.customIconPath.replace("icons", "Icons"));
-                    }
-                    // Fallbacks
-                    candidateBasePaths.add("Finance/Icons");
-                    candidateBasePaths.add("Finance/icons");
-
-                    const extensions = ["png", "jpg", "jpeg", "svg", "webp"];
-                    const names = [acc.fileName, acc.displayName];
-
-                    outerLoop:
-                    for (const basePath of candidateBasePaths) {
-                        if (!basePath) continue;
-                        for (const name of names) {
-                            if (!name) continue;
-                            for (const ext of extensions) {
-                                // Strategy A: basePath/accounts/name.ext
-                                let p = normalizePath(`${basePath}/accounts/${name}.${ext}`);
-                                let f = this.app.vault.getAbstractFileByPath(p);
-                                if (f instanceof TFile) {
-                                    iconSrc = this.app.vault.getResourcePath(f);
-                                    break outerLoop;
-                                }
-
-                                // Strategy B: basePath/name.ext (flat)
-                                p = normalizePath(`${basePath}/${name}.${ext}`);
-                                f = this.app.vault.getAbstractFileByPath(p);
-                                if (f instanceof TFile) {
-                                    iconSrc = this.app.vault.getResourcePath(f);
-                                    break outerLoop;
-                                }
-                            }
-                        }
-                    }
-                }
+                // Use IconResolver for icon lookup
+                const iconSrc = this.plugin.iconResolver.resolveAccountIcon(acc);
 
                 if (iconSrc) {
                     const img = iconContainer.createEl("img");
@@ -576,7 +492,7 @@ export class TransactionEditModal extends Modal {
                     img.style.height = "100%";
                     img.style.objectFit = "contain";
                 } else {
-                    setIcon(iconContainer, "wallet"); // Standard fallback
+                    setIcon(iconContainer, "wallet");
                     const svg = iconContainer.querySelector("svg");
                     if (svg) {
                         svg.style.width = "16px";
@@ -1380,74 +1296,7 @@ export class TransactionEditModal extends Modal {
             .sort((a, b) => a.primary.localeCompare(b.primary, "zh-Hans-CN"));
     }
 
-    private getCategoryImagePath(category: string): string | null {
-        if (!this.customIconPath?.trim()) return null;
-
-        const distinctNames = new Set<string>();
-        // 1. Raw name (e.g. "Food/Lunch")
-        distinctNames.add(category);
-
-        // 2. Dash-separated name (e.g. "Food-Lunch")
-        const cleanName = category.replace(/\//g, "-");
-        distinctNames.add(cleanName);
-
-        // 3. Leaf name (e.g. "Lunch")
-        const parts = category.split("/");
-        if (parts.length > 0) distinctNames.add(parts[parts.length - 1]!);
-
-        // 4. Parent name (e.g. "Food")
-        if (parts.length > 1) distinctNames.add(parts[0]!);
-
-        // Prepare candidate base paths
-        const basePaths = new Set<string>();
-        // Add root custom path
-        basePaths.add(this.customIconPath);
-
-        // Add variations with "icons" or "Icons" if custom path ends with neither or one
-        // Better: explicitly check subfolders "icons", "Icons", "transactions", "Transactions" inside customIconPath
-        // And check variations of customIconPath itself (case sensitivity issue on some file systems or manual entry)
-
-        // If user set "Finance/icons", also try "Finance/Icons"
-        if (this.customIconPath.includes("icons")) {
-            basePaths.add(this.customIconPath.replace("icons", "Icons"));
-        } else if (this.customIconPath.includes("Icons")) {
-            basePaths.add(this.customIconPath.replace("Icons", "icons"));
-        }
-
-        // Add specific subdirectories for organization
-        // The user showed structure: icons/transactions/...
-        // So we should look into: customIconPath/transactions/
-
-        // We will build a list of "search roots"
-        const searchRoots = Array.from(basePaths);
-        // Add subfolders to search roots
-        const subfolders = ["transactions", "Transactions", "icons", "Icons"];
-
-        const allSearchPaths = new Set<string>(searchRoots);
-
-        for (const root of searchRoots) {
-            for (const sub of subfolders) {
-                allSearchPaths.add(`${root}/${sub}`);
-            }
-        }
-
-        const extensions = ["png", "jpg", "jpeg", "svg", "webp", "gif"];
-
-        for (const basePath of allSearchPaths) {
-            for (const name of distinctNames) {
-                if (!name) continue;
-                for (const ext of extensions) {
-                    // Normalize path handles separators
-                    const path = normalizePath(`${basePath}/${name}.${ext}`);
-                    const file = this.app.vault.getAbstractFileByPath(path);
-                    if (file instanceof TFile) {
-                        return this.app.vault.getResourcePath(file);
-                    }
-                }
-            }
-        }
-        return null;
-    }
+    // getCategoryImagePath replaced by this.plugin.iconResolver.resolveCategoryIcon()
 
     private createFieldInput(container: HTMLElement, label: string, value: string, onInput: (value: string) => void): HTMLInputElement {
         const field = container.createDiv({ cls: "cost-add-txn-field" });

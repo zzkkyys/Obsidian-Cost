@@ -151,11 +151,11 @@ export class TransactionService {
             from: fm.from || "",
             to: fm.to || "",
             payee: fm.payee || "",
-            address: (fm as any).address || "",
-            latitude: (fm as any).latitude,
-            longitude: (fm as any).longitude,
+            address: fm.address || "",
+            latitude: fm.latitude,
+            longitude: fm.longitude,
             memo: fm.memo || "",
-            note: (fm as any).note || "",
+            note: fm.note || "",
             persons: fm.persons || [],
         };
     }
@@ -408,9 +408,9 @@ export class TransactionService {
             if (data.to !== undefined) fm.to = data.to;
             if (data.payee !== undefined) fm.payee = data.payee;
             if (data.memo !== undefined) fm.memo = data.memo;
-            if (data.address !== undefined) (fm as any).address = data.address;
-            if (data.latitude !== undefined) (fm as any).latitude = data.latitude;
-            if (data.longitude !== undefined) (fm as any).longitude = data.longitude;
+            if (data.address !== undefined) fm.address = data.address;
+            if (data.latitude !== undefined) fm.latitude = data.latitude;
+            if (data.longitude !== undefined) fm.longitude = data.longitude;
             if (data.persons !== undefined) fm.persons = data.persons;
             // Handle complex fields if necessary
         });
