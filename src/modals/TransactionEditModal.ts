@@ -340,103 +340,387 @@ export class TransactionEditModal extends Modal {
             refreshSummary();
         });
 
-        // 3. Payee Chip
+        // 3. Payee Chip (inline autocomplete)
+        // Collect known payees from transactions
+        const knownPayees = Array.from(new Set(
+            this.service.getTransactions()
+                .map(t => t.payee)
+                .filter((p): p is string => typeof p === "string" && p.trim() !== "")
+        )).sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+
         const payeeChip = createHelperChip("store", "商家", () => {
-            const promptModal = new Modal(this.app);
-            promptModal.titleEl.setText("商家/收款人");
-            const inputEl = promptModal.contentEl.createEl("input", {
+            if (this.modalEl.querySelector(".cost-inline-autocomplete")) return;
+
+            const wrapper = this.modalEl.createDiv({ cls: "cost-inline-autocomplete" });
+            const rect = payeeChip.chip.getBoundingClientRect();
+            wrapper.style.position = "fixed";
+            wrapper.style.top = `${rect.bottom + 4}px`;
+            wrapper.style.left = `${rect.left}px`;
+            wrapper.style.width = `250px`;
+            wrapper.style.zIndex = "99999";
+
+            const inputEl = wrapper.createEl("input", {
                 type: "text",
-                cls: "cost-prompt-input",
-                attr: { placeholder: "输入商家或收款人名称" }
+                cls: "cost-inline-autocomplete-input",
+                attr: { placeholder: "搜索或输入商家名" }
             });
             inputEl.value = payee;
-            inputEl.focus();
 
-            const btnContainer = promptModal.contentEl.createDiv({ cls: "cost-prompt-buttons" });
-            const cancelBtn = btnContainer.createEl("button", { text: "取消" });
-            cancelBtn.onclick = () => promptModal.close();
+            const listEl = wrapper.createDiv({ cls: "cost-inline-autocomplete-list" });
 
-            const confirmBtn = btnContainer.createEl("button", { text: "确定", cls: "mod-cta" });
-            confirmBtn.onclick = () => {
-                payee = inputEl.value.trim();
-                updateTopHelperChips();
-                refreshSummary();
-                promptModal.close();
+            let selectedIndex = -1;
+
+            const renderSuggestions = (query: string) => {
+                listEl.empty();
+                selectedIndex = -1;
+                const q = query.trim().toLowerCase();
+                const filtered = q
+                    ? knownPayees.filter(p => p.toLowerCase().includes(q))
+                    : knownPayees;
+
+                if (filtered.length === 0 && q) {
+                    listEl.createDiv({
+                        cls: "cost-inline-autocomplete-item cost-autocomplete-new",
+                        text: `新建「${query.trim()}」`
+                    }).onclick = () => {
+                        payee = query.trim();
+                        updateTopHelperChips();
+                        refreshSummary();
+                        closeAutocomplete();
+                    };
+                    return;
+                }
+
+                // 如果用户输入了内容且不在已有列表中，显示"新建"选项
+                if (q && !filtered.some(p => p.toLowerCase() === q)) {
+                    listEl.createDiv({
+                        cls: "cost-inline-autocomplete-item cost-autocomplete-new",
+                        text: `新建「${query.trim()}」`
+                    }).onclick = () => {
+                        payee = query.trim();
+                        updateTopHelperChips();
+                        refreshSummary();
+                        closeAutocomplete();
+                    };
+                }
+
+                filtered.slice(0, 50).forEach(name => {
+                    const item = listEl.createDiv({
+                        cls: "cost-inline-autocomplete-item",
+                        text: name
+                    });
+
+                    // 高亮匹配文字
+                    if (q) {
+                        item.empty();
+                        const idx = name.toLowerCase().indexOf(q);
+                        if (idx >= 0) {
+                            item.createSpan({ text: name.substring(0, idx) });
+                            item.createEl("strong", { text: name.substring(idx, idx + q.length) });
+                            item.createSpan({ text: name.substring(idx + q.length) });
+                        } else {
+                            item.setText(name);
+                        }
+                    }
+
+                    item.onclick = () => {
+                        payee = name;
+                        updateTopHelperChips();
+                        refreshSummary();
+                        closeAutocomplete();
+                    };
+                });
             };
 
+            const closeAutocomplete = () => {
+                wrapper.remove();
+                document.removeEventListener("mousedown", outsideListener);
+            };
+
+            const outsideListener = (e: MouseEvent) => {
+                if (!wrapper.contains(e.target as Node)) {
+                    // 确认当前输入
+                    const val = inputEl.value.trim();
+                    if (val) {
+                        payee = val;
+                        updateTopHelperChips();
+                        refreshSummary();
+                    }
+                    closeAutocomplete();
+                }
+            };
+
+            inputEl.oninput = () => renderSuggestions(inputEl.value);
             inputEl.onkeydown = (e) => {
-                if (e.key === "Enter") confirmBtn.click();
+                const items = listEl.querySelectorAll(".cost-inline-autocomplete-item");
+
+                if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+                    items.forEach((item, i) => {
+                        if (i === selectedIndex) {
+                            item.addClass("is-selected");
+                            (item as HTMLElement).scrollIntoView({ block: "nearest" });
+                        } else {
+                            item.removeClass("is-selected");
+                        }
+                    });
+                } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    selectedIndex = Math.max(selectedIndex - 1, 0);
+                    items.forEach((item, i) => {
+                        if (i === selectedIndex) {
+                            item.addClass("is-selected");
+                            (item as HTMLElement).scrollIntoView({ block: "nearest" });
+                        } else {
+                            item.removeClass("is-selected");
+                        }
+                    });
+                } else if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (selectedIndex >= 0 && items[selectedIndex]) {
+                        (items[selectedIndex] as HTMLElement).click();
+                    } else {
+                        payee = inputEl.value.trim();
+                        updateTopHelperChips();
+                        refreshSummary();
+                        closeAutocomplete();
+                    }
+                } else if (e.key === "Escape") {
+                    closeAutocomplete();
+                }
             };
 
-            promptModal.open();
+            // 延迟注册外部点击，防止当前点击马上触发
+            setTimeout(() => document.addEventListener("mousedown", outsideListener), 0);
+
+            renderSuggestions(payee);
+            inputEl.focus();
+            inputEl.select();
         }, () => {
             payee = "";
             updateTopHelperChips();
             refreshSummary();
         });
 
+
         // 4. Discount Chip
         const discountChip = createHelperChip("ticket", "优惠", () => {
             if (type !== "还款" && type !== "支出") return;
 
+            if (this.modalEl.querySelector(".cost-inline-discount")) return;
+
             const isRefund = type === "支出";
             const currentVal = isRefund ? refund : discount;
-            const title = isRefund ? "输入退款金额" : "输入优惠金额";
+            const placeholder = isRefund ? "输入退款金额..." : "输入优惠金额...";
 
-            const promptModal = new Modal(this.app);
-            promptModal.titleEl.setText(title);
-            promptModal.contentEl.createEl("p", { text: "请输入金额：" });
+            const wrapper = this.modalEl.createDiv({ cls: "cost-inline-autocomplete cost-inline-discount" });
+            const rect = discountChip.chip.getBoundingClientRect();
+            wrapper.style.position = "fixed";
+            wrapper.style.top = `${rect.bottom + 4}px`;
+            wrapper.style.left = `${rect.left}px`;
+            wrapper.style.width = `180px`;
+            wrapper.style.zIndex = "99999";
 
-            const inputEl = promptModal.contentEl.createEl("input", {
+            const inputEl = wrapper.createEl("input", {
                 type: "number",
-                cls: "cost-prompt-input"
+                cls: "cost-inline-autocomplete-input",
+                attr: { placeholder: placeholder, step: "0.01", min: "0" }
             });
             inputEl.value = currentVal > 0 ? String(currentVal) : "";
-            inputEl.focus();
 
-            const btnContainer = promptModal.contentEl.createDiv({ cls: "cost-prompt-buttons" });
-            const cancelBtn = btnContainer.createEl("button", { text: "取消" });
-            cancelBtn.onclick = () => promptModal.close();
+            const closeInput = () => {
+                wrapper.remove();
+                document.removeEventListener("mousedown", outsideListener);
+            };
 
-            const confirmBtn = btnContainer.createEl("button", { text: "确定", cls: "mod-cta" });
-            confirmBtn.onclick = () => {
+            const commitValue = () => {
                 const val = parseFloat(inputEl.value);
                 if (!isNaN(val) && val >= 0) {
-                    if (isRefund) {
-                        refund = val;
-                    } else {
-                        discount = val;
-                    }
-                    updateTopHelperChips();
+                    if (isRefund) refund = val;
+                    else discount = val;
+                } else if (!inputEl.value.trim()) {
+                    if (isRefund) refund = 0;
+                    else discount = 0;
                 }
-                promptModal.close();
+                updateTopHelperChips();
+                refreshSummary();
+                closeInput();
+            };
+
+            const outsideListener = (e: MouseEvent) => {
+                if (!wrapper.contains(e.target as Node)) {
+                    commitValue();
+                }
             };
 
             inputEl.onkeydown = (e) => {
-                if (e.key === "Enter") confirmBtn.click();
+                if (e.key === "Enter") commitValue();
+                else if (e.key === "Escape") closeInput();
             };
 
-            promptModal.open();
+            // 延迟防误触监听
+            setTimeout(() => document.addEventListener("mousedown", outsideListener), 0);
+
+            inputEl.focus();
+            inputEl.select();
         });
 
         // 5. Tags
         const tagsChip = createHelperChip("tag", "标签", () => {
-            const menu = new Menu();
-            if (personsOptions.length === 0) {
-                new Notice("暂无可选标签");
-                return;
-            }
-            personsOptions.forEach((name) => {
-                menu.addItem((item) => item.setTitle(name).onClick(() => {
-                    const values = personsStr ? personsStr.split(/[,，]\s*/).filter(Boolean) : [];
-                    if (!values.includes(name)) values.push(name);
-                    personsStr = values.join(", ");
+            if (this.modalEl.querySelector(".cost-inline-tags")) return;
+
+            const wrapper = this.modalEl.createDiv({ cls: "cost-inline-autocomplete cost-inline-tags" });
+            const rect = tagsChip.chip.getBoundingClientRect();
+            wrapper.style.position = "fixed";
+            wrapper.style.top = `${rect.bottom + 4}px`;
+            wrapper.style.left = `${rect.left}px`;
+            wrapper.style.width = `250px`;
+            wrapper.style.zIndex = "99999";
+
+            const inputEl = wrapper.createEl("input", {
+                type: "text",
+                cls: "cost-inline-autocomplete-input",
+                attr: { placeholder: "输入标签，以逗号分隔" }
+            });
+            // 确保结尾有逗号空格，方便继续输入下一个
+            inputEl.value = personsStr ? personsStr + (personsStr.endsWith(", ") ? "" : ", ") : "";
+
+            const listEl = wrapper.createDiv({ cls: "cost-inline-autocomplete-list" });
+            let selectedIndex = -1;
+
+            const renderSuggestions = (currentVal: string) => {
+                listEl.empty();
+                selectedIndex = -1;
+
+                const parts = currentVal.split(/[,，]/);
+                const currentQuery = (parts.pop() || "").trim();
+                const existingTags = parts.map(p => p.trim()).filter(Boolean);
+
+                const q = currentQuery.toLowerCase();
+                const filtered = q
+                    ? personsOptions.filter(p => p.toLowerCase().includes(q))
+                    : personsOptions.filter(p => !existingTags.includes(p));
+
+                if (filtered.length === 0 && q) {
+                    listEl.createDiv({
+                        cls: "cost-inline-autocomplete-item cost-autocomplete-new",
+                        text: `新建标签「${currentQuery}」`
+                    }).onclick = () => confirmTag(currentQuery);
+                    return;
+                }
+
+                if (q && !filtered.some(p => p.toLowerCase() === q)) {
+                    listEl.createDiv({
+                        cls: "cost-inline-autocomplete-item cost-autocomplete-new",
+                        text: `新建标签「${currentQuery}」`
+                    }).onclick = () => confirmTag(currentQuery);
+                }
+
+                filtered.slice(0, 50).forEach(name => {
+                    const item = listEl.createDiv({
+                        cls: "cost-inline-autocomplete-item",
+                        text: name
+                    });
+
+                    if (q) {
+                        item.empty();
+                        const idx = name.toLowerCase().indexOf(q);
+                        if (idx >= 0) {
+                            item.createSpan({ text: name.substring(0, idx) });
+                            item.createEl("strong", { text: name.substring(idx, idx + q.length) });
+                            item.createSpan({ text: name.substring(idx + q.length) });
+                        } else {
+                            item.setText(name);
+                        }
+                    }
+
+                    item.onclick = () => confirmTag(name);
+                });
+            };
+
+            const confirmTag = (tag: string) => {
+                const parts = inputEl.value.split(/[,，]/);
+                parts.pop(); // 移除当前正在输入的部分
+                parts.push(tag ? ` ${tag}` : ""); // 加上新的标签
+
+                const newVal = parts.map(p => p.trim()).filter(Boolean).join(", ") + ", ";
+                inputEl.value = newVal;
+
+                personsStr = parts.map(p => p.trim()).filter(Boolean).join(", ");
+                updateTopHelperChips();
+                refreshSummary();
+
+                inputEl.focus();
+                renderSuggestions(inputEl.value);
+            };
+
+            const closeAutocomplete = () => {
+                wrapper.remove();
+                document.removeEventListener("mousedown", outsideListener);
+            };
+
+            const outsideListener = (e: MouseEvent) => {
+                if (!wrapper.contains(e.target as Node)) {
+                    personsStr = inputEl.value.split(/[,，]/).map(s => s.trim()).filter(Boolean).join(", ");
                     updateTopHelperChips();
                     refreshSummary();
-                }));
-            });
-            const rect = tagsChip.chip.getBoundingClientRect();
-            menu.showAtPosition({ x: rect.left, y: rect.bottom + 4 });
+                    closeAutocomplete();
+                }
+            };
+
+            inputEl.oninput = () => {
+                personsStr = inputEl.value.split(/[,，]/).map(s => s.trim()).filter(Boolean).join(", ");
+                updateTopHelperChips();
+                refreshSummary();
+                renderSuggestions(inputEl.value);
+            };
+
+            inputEl.onkeydown = (e) => {
+                const items = listEl.querySelectorAll(".cost-inline-autocomplete-item");
+
+                if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+                    items.forEach((item, i) => {
+                        if (i === selectedIndex) {
+                            item.addClass("is-selected");
+                            (item as HTMLElement).scrollIntoView({ block: "nearest" });
+                        } else {
+                            item.removeClass("is-selected");
+                        }
+                    });
+                } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    selectedIndex = Math.max(selectedIndex - 1, 0);
+                    items.forEach((item, i) => {
+                        if (i === selectedIndex) {
+                            item.addClass("is-selected");
+                            (item as HTMLElement).scrollIntoView({ block: "nearest" });
+                        } else {
+                            item.removeClass("is-selected");
+                        }
+                    });
+                } else if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (selectedIndex >= 0 && items[selectedIndex]) {
+                        (items[selectedIndex] as HTMLElement).click();
+                    } else {
+                        personsStr = inputEl.value.split(/[,，]/).map(s => s.trim()).filter(Boolean).join(", ");
+                        updateTopHelperChips();
+                        refreshSummary();
+                        closeAutocomplete();
+                    }
+                } else if (e.key === "Escape") {
+                    closeAutocomplete();
+                }
+            };
+
+            setTimeout(() => document.addEventListener("mousedown", outsideListener), 0);
+
+            renderSuggestions(inputEl.value);
+            inputEl.focus();
+            inputEl.setSelectionRange(inputEl.value.length, inputEl.value.length);
         });
 
         // Helper to update chip states
@@ -471,6 +755,12 @@ export class TransactionEditModal extends Modal {
 
             const showDiscount = type === "支出" || type === "还款";
             discountChip.chip.style.display = showDiscount ? "flex" : "none";
+
+            let discountText = type === "支出" ? "退款" : "优惠";
+            if (type === "支出" && refund > 0) discountText = `退款 ${refund}`;
+            if (type === "还款" && discount > 0) discountText = `优惠 ${discount}`;
+
+            discountChip.textSpan.setText(discountText);
             discountChip.chip.toggleClass("has-value", (type === "还款" && discount > 0) || (type === "支出" && refund > 0));
         };
 

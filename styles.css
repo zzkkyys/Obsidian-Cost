@@ -3118,3 +3118,95 @@ Obsidian Cost Plugin Styles
 	justify-content: flex-end;
 	gap: 8px;
 }
+
+/* ─── Inline Autocomplete (Payee) ─── */
+.cost-inline-autocomplete {
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 100%;
+	z-index: 100;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+	padding: 6px;
+	margin-top: 4px;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.cost-inline-autocomplete-input {
+	width: 100%;
+	padding: 8px 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	font-size: 14px;
+	outline: none;
+	transition: border-color 0.15s;
+}
+
+.cost-inline-autocomplete-input:focus {
+	border-color: var(--interactive-accent);
+}
+
+.cost-inline-autocomplete-list {
+	max-height: 260px;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+}
+
+.cost-inline-autocomplete-list::-webkit-scrollbar {
+	width: 4px;
+}
+
+.cost-inline-autocomplete-list::-webkit-scrollbar-thumb {
+	background: var(--background-modifier-border);
+	border-radius: 2px;
+}
+
+.cost-inline-autocomplete-item {
+	padding: 8px 12px;
+	min-height: 36px;
+	box-sizing: border-box;
+	border-radius: 5px;
+	cursor: pointer;
+	font-size: 14px;
+	line-height: 20px;
+	color: var(--text-normal);
+	transition: background 0.1s;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.cost-inline-autocomplete-item.is-selected,
+.cost-inline-autocomplete-item:hover {
+	background: var(--background-modifier-hover);
+}
+
+.cost-inline-autocomplete-item strong {
+	color: var(--interactive-accent);
+	font-weight: 600;
+}
+
+.cost-inline-autocomplete-item.cost-autocomplete-new {
+	color: var(--text-muted);
+	font-style: italic;
+	border-top: 1px solid var(--background-modifier-border);
+	margin-top: 2px;
+}
+
+.cost-inline-autocomplete-item.cost-autocomplete-new:hover {
+	color: var(--interactive-accent);
+}
+
+/* Ensure the helper bar is positioned for absolute children */
+.cost-top-helper-bar {
+	position: relative;
+}
