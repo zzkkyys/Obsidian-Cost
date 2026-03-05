@@ -63,70 +63,20 @@ export class TransactionEditModal extends Modal {
         contentEl.empty();
         this.modalEl.addClass("cost-add-txn-modal");
 
-        // Inject dynamic styles
-        const style = document.createElement("style");
-        style.textContent = `
-            @keyframes costShimmer {
-                0% { background-position: 100% 50%; }
-                100% { background-position: 0% 50%; }
-            }
-            .cost-cat-btn-active-glow {
-                background: linear-gradient(120deg, 
-                    color-mix(in srgb, var(--interactive-accent) 10%, transparent) 0%, 
-                    color-mix(in srgb, var(--interactive-accent) 40%, transparent) 50%, 
-                    color-mix(in srgb, var(--interactive-accent) 10%, transparent) 100%
-                ) !important;
-                background-size: 200% 200% !important;
-                animation: costShimmer 3s ease infinite !important;
-                border-radius: 12px !important;
-                box-shadow: 0 0 0 1px var(--interactive-accent), 0 0 12px color-mix(in srgb, var(--interactive-accent) 40%, transparent) !important;
-                transition: all 0.3s ease !important;
-            }
-            .theme-dark .cost-cat-btn-active-glow {
-                 background: linear-gradient(120deg, 
-                    color-mix(in srgb, var(--interactive-accent) 15%, transparent) 0%, 
-                    color-mix(in srgb, var(--interactive-accent) 50%, transparent) 50%, 
-                    color-mix(in srgb, var(--interactive-accent) 15%, transparent) 100%
-                ) !important;
-            }
-        `;
-        contentEl.appendChild(style);
-
         // --- Custom Header Layout ---
         titleEl.empty();
         titleEl.addClass("cost-modal-header");
-        // Force flex layout on titleEl to fuse everything in one row
-        titleEl.style.display = "flex";
-        titleEl.style.alignItems = "center";
-        titleEl.style.justifyContent = "space-between"; // Distribute space
-        titleEl.style.gap = "12px";
-        titleEl.style.paddingRight = "40px"; // Reserve space for close button if absolute
 
-        // 1. Title Text (Left)
         const titleText = titleEl.createDiv({
             text: this.isNewTransaction ? "新建交易" : "编辑交易",
             cls: "cost-modal-title-text"
         });
-        titleText.style.fontWeight = "bold";
-        titleText.style.fontSize = "18px";
-        titleText.style.whiteSpace = "nowrap";
 
-        // 2. Type Tabs (Center - fused)
-        // Create container for tabs in header
         const typeTabsChanged = titleEl.createDiv({ cls: "cost-add-txn-type-tabs" });
-        // Override styles to fit in header
-        typeTabsChanged.style.margin = "0";
-        typeTabsChanged.style.width = "auto";
-        typeTabsChanged.style.background = "transparent"; // Remove background to blend
-        typeTabsChanged.style.padding = "0";
-        typeTabsChanged.style.gap = "4px";
 
         const typeButtons = new Map<TxnType, HTMLButtonElement>();
 
-        // 3. Actions (Right) - Open File Button
         const headerActions = titleEl.createDiv({ cls: "cost-modal-header-actions-inline" });
-        headerActions.style.display = "flex";
-        headerActions.style.alignItems = "center";
 
         const openFileBtn = headerActions.createEl("button", {
             cls: "clickable-icon",
@@ -168,9 +118,6 @@ export class TransactionEditModal extends Modal {
                 text: opt.label,
                 attr: { type: "button" }
             });
-            // Adjust button style for header
-            btn.style.padding = "4px 8px";
-            btn.style.fontSize = "13px";
 
             btn.onclick = () => {
                 type = opt.value;
@@ -190,17 +137,10 @@ export class TransactionEditModal extends Modal {
                 btn.toggleClass("is-active", active);
                 btn.toggleClass("cost-cat-btn-active-glow", active);
 
-                const icon = btn.querySelector(".cost-add-txn-category-icon") as HTMLElement;
-                if (icon) {
-                    if (active) {
-                        // Keep subtle scale on icon
-                        icon.style.transform = "scale(1.1)";
-                        icon.style.transition = "all 0.2s ease";
-                        btn.style.opacity = "1";
-                    } else {
-                        icon.style.transform = "none";
-                        btn.style.opacity = category ? "0.6" : "1";
-                    }
+                if (active) {
+                    btn.style.opacity = "1";
+                } else {
+                    btn.style.opacity = category ? "0.6" : "1";
                 }
             });
             categoryTitleEl.setText(`选择分类：${category}`);
@@ -212,11 +152,7 @@ export class TransactionEditModal extends Modal {
             const categoryGroups = this.collectCategoryGroups(type);
 
             if (categoryGroups.length === 0) {
-                const emptyMsg = categoryGrid.createDiv({ text: "无可用分类", cls: "cost-add-txn-empty-cat" });
-                emptyMsg.style.color = "var(--text-muted)";
-                emptyMsg.style.padding = "10px";
-                emptyMsg.style.textAlign = "center";
-                emptyMsg.style.width = "100%";
+                categoryGrid.createDiv({ text: "无可用分类", cls: "cost-add-txn-empty-cat" });
             }
 
             categoryGroups.forEach((group) => {
@@ -225,54 +161,21 @@ export class TransactionEditModal extends Modal {
                     cls: "cost-add-txn-category-item",
                     attr: { type: "button", title: cat }
                 });
-                // Force layout styles to ensure icon visibility
-                btn.style.display = "flex";
-                btn.style.flexDirection = "column";
-                btn.style.alignItems = "center";
-                btn.style.justifyContent = "center";
-                btn.style.gap = "4px"; // Reduced gap
-                btn.style.height = "auto";
-                btn.style.minHeight = "auto"; // Remove forced height
-                btn.style.padding = "4px 2px";
 
                 const iconCircle = btn.createDiv({ cls: "cost-add-txn-category-icon" });
-                // Force icon container styles
-                iconCircle.style.width = "26px";
-                iconCircle.style.height = "26px";
-                iconCircle.style.minHeight = "26px"; // Prevent collapse
-                iconCircle.style.borderRadius = "50%";
-                iconCircle.style.display = "flex";
-                iconCircle.style.alignItems = "center";
-                iconCircle.style.justifyContent = "center";
                 iconCircle.style.background = this.getCategoryColor(cat);
-                // Ensure icon color is dark enough to see against pastel background
-                iconCircle.style.color = "rgba(0,0,0,0.6)";
 
                 const iconPath = this.plugin.iconResolver.resolveCategoryIcon(cat);
                 if (iconPath) {
                     const img = iconCircle.createEl("img", { cls: "cost-add-txn-category-icon-img" });
                     img.src = iconPath;
                     img.alt = cat;
-                    img.style.width = "16px";
-                    img.style.height = "16px";
                 } else {
                     const iconName = this.getCategoryIcon(cat);
                     setIcon(iconCircle, iconName);
-                    // Fix for setIcon: sometimes it needs specific sizing on the svg
-                    const svg = iconCircle.querySelector("svg");
-                    if (svg) {
-                        svg.style.width = "16px";
-                        svg.style.height = "16px";
-                    }
                 }
 
-                const label = btn.createDiv({ cls: "cost-add-txn-category-label", text: cat });
-                label.style.fontSize = "11px";
-                label.style.lineHeight = "1.1";
-                label.style.textAlign = "center";
-                label.style.minHeight = "0"; // Override CSS default of 30px
-                label.style.height = "auto";
-                label.style.marginBottom = "0";
+                btn.createDiv({ cls: "cost-add-txn-category-label", text: cat });
 
                 btn.onclick = () => {
                     if (group.children.length === 0) {
@@ -311,36 +214,14 @@ export class TransactionEditModal extends Modal {
                 categoryButtons.set(cat, btn);
             });
 
-            // Add "Add Category" Button
             const addBtn = categoryGrid.createEl("button", {
                 cls: "cost-add-txn-category-item",
-                attr: {
-                    type: "button",
-                    title: "添加新分类",
-                    style: "display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; height: auto; min-height: auto; padding: 4px 2px;"
-                }
+                attr: { type: "button", title: "添加新分类" }
             });
-            const addIconCircle = addBtn.createDiv({ cls: "cost-add-txn-category-icon" });
-            addIconCircle.style.width = "26px";
-            addIconCircle.style.height = "26px";
-            addIconCircle.style.minHeight = "26px";
-            addIconCircle.style.borderRadius = "50%";
-            addIconCircle.style.display = "flex";
-            addIconCircle.style.alignItems = "center";
-            addIconCircle.style.justifyContent = "center";
-            addIconCircle.style.background = "#f0f0f0"; // Neutral background
-            addIconCircle.style.color = "rgba(0,0,0,0.6)";
+            const addIconCircle = addBtn.createDiv({ cls: "cost-add-txn-category-icon cost-add-txn-category-add-icon" });
             setIcon(addIconCircle, "plus");
-            const svg = addIconCircle.querySelector("svg");
-            if (svg) { svg.style.width = "16px"; svg.style.height = "16px"; }
 
-            const addLabel = addBtn.createDiv({ cls: "cost-add-txn-category-label", text: "添加" });
-            addLabel.style.fontSize = "11px";
-            addLabel.style.lineHeight = "1.1";
-            addLabel.style.textAlign = "center";
-            addLabel.style.minHeight = "0";
-            addLabel.style.height = "auto";
-            addLabel.style.marginBottom = "0";
+            addBtn.createDiv({ cls: "cost-add-txn-category-label", text: "添加" });
 
             addBtn.onclick = async () => {
                 // Prompt for new category name
@@ -348,12 +229,12 @@ export class TransactionEditModal extends Modal {
                 promptModal.titleEl.setText(`添加${type}分类`);
                 const inputEl = promptModal.contentEl.createEl("input", {
                     type: "text",
-                    placeholder: "输入分类名称",
-                    attr: { style: "width: 100%; margin-bottom: 12px;" }
+                    cls: "cost-prompt-input",
+                    placeholder: "输入分类名称"
                 });
                 inputEl.focus();
 
-                const btnContainer = promptModal.contentEl.createDiv({ attr: { style: "display: flex; justify-content: flex-end; gap: 8px;" } });
+                const btnContainer = promptModal.contentEl.createDiv({ cls: "cost-prompt-buttons" });
                 const cancelBtn = btnContainer.createEl("button", { text: "取消" });
                 cancelBtn.onclick = () => promptModal.close();
                 const confirmBtn = btnContainer.createEl("button", { text: "确定", cls: "mod-cta" });
@@ -427,23 +308,10 @@ export class TransactionEditModal extends Modal {
                 return;
             }
 
-            // Create a custom menu-like dropdown
             const menuEl = document.body.createDiv({ cls: "menu cost-account-dropdown-menu" });
             const rect = anchor.getBoundingClientRect();
-
-            // Basic positioning (can be improved)
-            menuEl.style.position = "absolute";
             menuEl.style.left = `${rect.left}px`;
             menuEl.style.top = `${rect.bottom + 4}px`;
-            menuEl.style.zIndex = "var(--layer-menu)"; // Use Obsidian var
-            menuEl.style.minWidth = "180px";
-            menuEl.style.maxHeight = "300px"; // Limit height
-            menuEl.style.overflowY = "auto"; // Add scroll
-            menuEl.style.backgroundColor = "var(--background-primary)";
-            menuEl.style.border = "1px solid var(--background-modifier-border)";
-            menuEl.style.borderRadius = "6px";
-            menuEl.style.boxShadow = "var(--shadow-s)";
-            menuEl.style.padding = "4px";
 
             // Click outside to close
             const closeMenu = () => {
@@ -460,27 +328,8 @@ export class TransactionEditModal extends Modal {
 
             accounts.forEach(acc => {
                 const itemEl = menuEl.createDiv({ cls: "menu-item" });
-                itemEl.style.display = "flex";
-                itemEl.style.alignItems = "center";
-                itemEl.style.padding = "6px 10px";
-                itemEl.style.cursor = "pointer";
-                itemEl.style.borderRadius = "4px";
-                itemEl.style.gap = "8px";
 
-                itemEl.onmouseenter = () => {
-                    itemEl.style.backgroundColor = "var(--background-modifier-hover)";
-                };
-                itemEl.onmouseleave = () => {
-                    itemEl.style.backgroundColor = "transparent";
-                };
-
-                // Icon container
                 const iconContainer = itemEl.createDiv({ cls: "menu-item-icon" });
-                iconContainer.style.display = "flex";
-                iconContainer.style.alignItems = "center";
-                iconContainer.style.justifyContent = "center";
-                iconContainer.style.width = "20px";
-                iconContainer.style.height = "20px";
 
                 // Use IconResolver for icon lookup
                 const iconSrc = this.plugin.iconResolver.resolveAccountIcon(acc);
@@ -488,26 +337,11 @@ export class TransactionEditModal extends Modal {
                 if (iconSrc) {
                     const img = iconContainer.createEl("img");
                     img.src = iconSrc;
-                    img.style.width = "100%";
-                    img.style.height = "100%";
-                    img.style.objectFit = "contain";
                 } else {
                     setIcon(iconContainer, "wallet");
-                    const svg = iconContainer.querySelector("svg");
-                    if (svg) {
-                        svg.style.width = "16px";
-                        svg.style.height = "16px";
-                        svg.style.color = "var(--text-muted)";
-                    }
                 }
 
-                // Title
-                const titleEl = itemEl.createDiv({ cls: "menu-item-title", text: acc.displayName || acc.fileName });
-                titleEl.style.flex = "1";
-                titleEl.style.whiteSpace = "nowrap";
-                titleEl.style.overflow = "hidden";
-                titleEl.style.textOverflow = "ellipsis";
-                titleEl.style.color = "var(--text-normal)";
+                itemEl.createDiv({ cls: "menu-item-title", text: acc.displayName || acc.fileName });
 
                 itemEl.onclick = () => {
                     onSelect(acc);
@@ -549,12 +383,13 @@ export class TransactionEditModal extends Modal {
             promptModal.titleEl.setText("商家/收款人");
             const inputEl = promptModal.contentEl.createEl("input", {
                 type: "text",
-                attr: { style: "width: 100%; margin-bottom: 12px;", placeholder: "输入商家或收款人名称" }
+                cls: "cost-prompt-input",
+                attr: { placeholder: "输入商家或收款人名称" }
             });
             inputEl.value = payee;
             inputEl.focus();
 
-            const btnContainer = promptModal.contentEl.createDiv({ attr: { style: "display: flex; justify-content: flex-end; gap: 8px;" } });
+            const btnContainer = promptModal.contentEl.createDiv({ cls: "cost-prompt-buttons" });
             const cancelBtn = btnContainer.createEl("button", { text: "取消" });
             cancelBtn.onclick = () => promptModal.close();
 
@@ -592,12 +427,12 @@ export class TransactionEditModal extends Modal {
 
             const inputEl = promptModal.contentEl.createEl("input", {
                 type: "number",
-                attr: { style: "width: 100%; margin-bottom: 12px;" }
+                cls: "cost-prompt-input"
             });
             inputEl.value = currentVal > 0 ? String(currentVal) : "";
             inputEl.focus();
 
-            const btnContainer = promptModal.contentEl.createDiv({ attr: { style: "display: flex; justify-content: flex-end; gap: 8px;" } });
+            const btnContainer = promptModal.contentEl.createDiv({ cls: "cost-prompt-buttons" });
             const cancelBtn = btnContainer.createEl("button", { text: "取消" });
             cancelBtn.onclick = () => promptModal.close();
 
@@ -855,12 +690,13 @@ export class TransactionEditModal extends Modal {
                         promptModal.titleEl.setText("输入地址");
                         const inputEl = promptModal.contentEl.createEl("input", {
                             type: "text",
-                            attr: { style: "width: 100%; margin-bottom: 12px;", placeholder: "输入具体地址" }
+                            cls: "cost-prompt-input",
+                            attr: { placeholder: "输入具体地址" }
                         });
                         inputEl.value = address;
                         inputEl.focus();
 
-                        const btnContainer = promptModal.contentEl.createDiv({ attr: { style: "display: flex; justify-content: flex-end; gap: 8px;" } });
+                        const btnContainer = promptModal.contentEl.createDiv({ cls: "cost-prompt-buttons" });
                         btnContainer.createEl("button", { text: "取消" }).onclick = () => promptModal.close();
                         const confirmBtn = btnContainer.createEl("button", { text: "确定", cls: "mod-cta" });
                         confirmBtn.onclick = () => {
@@ -1227,7 +1063,7 @@ export class TransactionEditModal extends Modal {
             .getTransactions()
             .filter(t => t.txnType === type)
             .map((t) => t.category)
-            .filter((c): c is string => Boolean(c && c.trim() !== ""))
+            .filter((c): c is string => typeof c === "string" && Boolean(c.trim() !== ""))
             .map((c) => c.trim());
 
         if (txCategories.length === 0) {

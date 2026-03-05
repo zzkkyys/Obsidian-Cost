@@ -78,8 +78,9 @@ export class IconResolver {
      *
      * @returns vault resource path 或 null
      */
-    resolveCategoryIcon(category: string): string | null {
-        if (!category?.trim() || !this.customIconPath?.trim()) return null;
+    resolveCategoryIcon(category: string | unknown): string | null {
+        if (!category || typeof category !== "string") return null;
+        if (!category.trim() || !this.customIconPath?.trim()) return null;
 
         const cacheKey = `category:${category}`;
         const cached = this.cache.get(cacheKey);

@@ -2921,3 +2921,204 @@ Obsidian Cost Plugin Styles
 	opacity: 0.7;
 	pointer-events: none;
 }
+
+/* ========================================
+   TransactionEditModal - 迁移自内联样式
+   ======================================== */
+
+/* 分类激活动画 */
+@keyframes costShimmer {
+	0% {
+		background-position: 100% 50%;
+	}
+
+	100% {
+		background-position: 0% 50%;
+	}
+}
+
+.cost-cat-btn-active-glow {
+	background: linear-gradient(120deg,
+			color-mix(in srgb, var(--interactive-accent) 10%, transparent) 0%,
+			color-mix(in srgb, var(--interactive-accent) 40%, transparent) 50%,
+			color-mix(in srgb, var(--interactive-accent) 10%, transparent) 100%) !important;
+	background-size: 200% 200% !important;
+	animation: costShimmer 3s ease infinite !important;
+	border-radius: 12px !important;
+	box-shadow: 0 0 0 1px var(--interactive-accent), 0 0 12px color-mix(in srgb, var(--interactive-accent) 40%, transparent) !important;
+	transition: all 0.3s ease !important;
+}
+
+.theme-dark .cost-cat-btn-active-glow {
+	background: linear-gradient(120deg,
+			color-mix(in srgb, var(--interactive-accent) 15%, transparent) 0%,
+			color-mix(in srgb, var(--interactive-accent) 50%, transparent) 50%,
+			color-mix(in srgb, var(--interactive-accent) 15%, transparent) 100%) !important;
+}
+
+/* Modal Header 布局 */
+.cost-modal-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding-right: 40px;
+}
+
+.cost-modal-title-text {
+	font-weight: bold;
+	font-size: 18px;
+	white-space: nowrap;
+}
+
+.cost-modal-header .cost-add-txn-type-tabs {
+	margin: 0;
+	width: auto;
+	background: transparent;
+	padding: 0;
+	gap: 4px;
+}
+
+.cost-modal-header .cost-add-txn-type-btn {
+	padding: 4px 8px;
+	font-size: 13px;
+}
+
+.cost-modal-header-actions-inline {
+	display: flex;
+	align-items: center;
+}
+
+/* 分类按钮项 */
+.cost-add-txn-category-item {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	height: auto;
+	min-height: auto;
+	padding: 4px 2px;
+}
+
+/* 分类图标圆形容器 */
+.cost-add-txn-category-icon {
+	width: 26px;
+	height: 26px;
+	min-height: 26px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: rgba(0, 0, 0, 0.6);
+}
+
+.cost-add-txn-category-icon svg {
+	width: 16px;
+	height: 16px;
+}
+
+.cost-add-txn-category-icon-img {
+	width: 16px;
+	height: 16px;
+}
+
+/* 分类标签文本 */
+.cost-add-txn-category-label {
+	font-size: 11px;
+	line-height: 1.1;
+	text-align: center;
+	min-height: 0;
+	height: auto;
+	margin-bottom: 0;
+}
+
+/* 添加分类按钮的图标背景 */
+.cost-add-txn-category-add-icon {
+	background: #f0f0f0;
+}
+
+.theme-dark .cost-add-txn-category-add-icon {
+	background: var(--background-modifier-hover);
+}
+
+/* 空分类提示 */
+.cost-add-txn-empty-cat {
+	color: var(--text-muted);
+	padding: 10px;
+	text-align: center;
+	width: 100%;
+}
+
+/* 分类图标激活态动画 */
+.cost-add-txn-category-item.is-active .cost-add-txn-category-icon {
+	transform: scale(1.1);
+	transition: all 0.2s ease;
+}
+
+/* 账户下拉菜单 */
+.cost-account-dropdown-menu {
+	position: absolute;
+	z-index: var(--layer-menu);
+	min-width: 180px;
+	max-height: 300px;
+	overflow-y: auto;
+	background-color: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	box-shadow: var(--shadow-s);
+	padding: 4px;
+}
+
+.cost-account-dropdown-menu .menu-item {
+	display: flex;
+	align-items: center;
+	padding: 6px 10px;
+	cursor: pointer;
+	border-radius: 4px;
+	gap: 8px;
+}
+
+.cost-account-dropdown-menu .menu-item:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.cost-account-dropdown-menu .menu-item-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+}
+
+.cost-account-dropdown-menu .menu-item-icon img {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+}
+
+.cost-account-dropdown-menu .menu-item-icon svg {
+	width: 16px;
+	height: 16px;
+	color: var(--text-muted);
+}
+
+.cost-account-dropdown-menu .menu-item-title {
+	flex: 1;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	color: var(--text-normal);
+}
+
+/* Prompt Modal 公共样式 */
+.cost-prompt-input {
+	width: 100%;
+	margin-bottom: 12px;
+}
+
+.cost-prompt-buttons {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+}
