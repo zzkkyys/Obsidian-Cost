@@ -186,7 +186,6 @@ export class CostMainView extends ItemView {
 
     private renderTransactionsTab(container: HTMLElement): void {
         const transactions = this.plugin.transactionService.getTransactions();
-        new Notice(`Debug: Loaded ${transactions.length} transactions`);
         const accounts = this.plugin.accountService.getAccounts();
 
         // Calculate running balances

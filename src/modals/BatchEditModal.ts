@@ -154,7 +154,7 @@ export class BatchEditModal extends Modal {
                 try {
                     await this.app.fileManager.processFrontMatter(file, (fm) => {
                         if (this.enabledFields.date && this.updates.date) fm.date = this.updates.date;
-                        if (this.enabledFields.txnType && this.updates.txnType) fm.txnType = this.updates.txnType;
+                        if (this.enabledFields.txnType && this.updates.txnType) fm.txn_type = this.updates.txnType;
                         if (this.enabledFields.category && this.updates.category !== undefined) fm.category = this.updates.category;
                         if (this.enabledFields.payee && this.updates.payee !== undefined) fm.payee = this.updates.payee;
                         if (this.enabledFields.note && this.updates.note !== undefined) fm.note = this.updates.note;
