@@ -13,6 +13,7 @@ export const COST_STATS_VIEW_TYPE = "cost-stats-view";
 
 export class CostStatsView extends ItemView {
     private plugin: CostPlugin;
+    private unsubscribeEvents: (() => void)[] = [];
 
     constructor(leaf: WorkspaceLeaf, plugin: CostPlugin) {
         super(leaf);
@@ -35,9 +36,16 @@ export class CostStatsView extends ItemView {
         this.contentEl.empty();
         this.contentEl.addClass("cost-stats-view");
         this.render();
+
+        // 订阅事件总线
+        this.unsubscribeEvents.push(
+            this.plugin.eventBus.on("data-changed", () => this.update())
+        );
     }
 
     async onClose(): Promise<void> {
+        this.unsubscribeEvents.forEach(fn => fn());
+        this.unsubscribeEvents = [];
         this.contentEl.empty();
     }
 

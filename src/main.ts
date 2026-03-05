@@ -2,6 +2,7 @@ import { Notice, Plugin, parseYaml, debounce, TFile } from "obsidian";
 import { DEFAULT_SETTINGS, CostPluginSettings, CostSettingTab, KnownAccountInfo } from "./settings";
 import { AccountService } from "./services/accountService";
 import { IconResolver } from "./services/iconResolver";
+import { EventBus } from "./services/eventBus";
 import { TransactionService, TransactionInfo } from "./services/transactionService";
 import { TransactionEditModal } from "./modals/TransactionEditModal";
 import { AccountSuggester } from "./suggesters/accountSuggester";
@@ -17,6 +18,7 @@ export default class CostPlugin extends Plugin {
 	accountService: AccountService;
 	transactionService: TransactionService;
 	iconResolver: IconResolver;
+	eventBus: EventBus;
 
 	async onload() {
 		await this.loadSettings();
@@ -25,6 +27,7 @@ export default class CostPlugin extends Plugin {
 		this.accountService = new AccountService(this.app, this.settings.accountsPath);
 		this.transactionService = new TransactionService(this.app, this.settings.transactionsPath);
 		this.iconResolver = new IconResolver(this.app, this.settings.customIconPath);
+		this.eventBus = new EventBus();
 
 		// 注册视图
 		this.registerView(
@@ -312,7 +315,7 @@ export default class CostPlugin extends Plugin {
 	}
 
 	onunload() {
-		// 关闭视图
+		this.eventBus.destroy();
 		this.app.workspace.detachLeavesOfType(ACCOUNTS_SIDEBAR_VIEW_TYPE);
 		this.app.workspace.detachLeavesOfType(COST_MAIN_VIEW_TYPE);
 		this.app.workspace.detachLeavesOfType(COST_STATS_VIEW_TYPE);
@@ -385,21 +388,7 @@ export default class CostPlugin extends Plugin {
 	}
 
 	async refreshViews() {
-		this.app.workspace.getLeavesOfType(ACCOUNTS_SIDEBAR_VIEW_TYPE).forEach(leaf => {
-			if (leaf.view instanceof AccountsSidebarView) {
-				leaf.view.render();
-			}
-		});
-		this.app.workspace.getLeavesOfType(COST_MAIN_VIEW_TYPE).forEach(leaf => {
-			if (leaf.view instanceof CostMainView) {
-				leaf.view.update();
-			}
-		});
-		// Stats view might need update too
-		this.app.workspace.getLeavesOfType(COST_STATS_VIEW_TYPE).forEach(leaf => {
-			// Assuming stats view has update or render
-			// (leaf.view as any).render?.(); 
-		});
+		this.eventBus.emit("data-changed");
 	}
 
 	async saveSettings() {
@@ -412,6 +401,7 @@ export default class CostPlugin extends Plugin {
 		await this.accountService.scanAccounts();
 		await this.transactionService.scanTransactions();
 		await this.syncKnownData();
+		this.eventBus.emit("settings-changed");
 		this.refreshViews();
 	}
 

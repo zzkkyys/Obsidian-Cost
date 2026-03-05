@@ -35,6 +35,7 @@ export class CostMainView extends ItemView {
     };
 
     private tabContentMap: Map<TabType, HTMLElement> = new Map();
+    private unsubscribeEvents: (() => void)[] = [];
 
     constructor(leaf: WorkspaceLeaf, plugin: CostPlugin) {
         super(leaf);
@@ -58,9 +59,16 @@ export class CostMainView extends ItemView {
         this.contentEl.addClass("cost-main-view");
         this.renderInitialStructure();
         await this.renderActiveTab();
+
+        // 订阅事件总线
+        this.unsubscribeEvents.push(
+            this.plugin.eventBus.on("data-changed", () => this.update())
+        );
     }
 
     async onClose(): Promise<void> {
+        this.unsubscribeEvents.forEach(fn => fn());
+        this.unsubscribeEvents = [];
         this.contentEl.empty();
         this.tabContentMap.clear();
     }

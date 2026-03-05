@@ -11,6 +11,7 @@ export const ACCOUNTS_SIDEBAR_VIEW_TYPE = "cost-accounts-sidebar";
  */
 export class AccountsSidebarView extends ItemView {
     private plugin: CostPlugin;
+    private unsubscribeEvents: (() => void)[] = [];
 
     constructor(leaf: WorkspaceLeaf, plugin: CostPlugin) {
         super(leaf);
@@ -34,9 +35,16 @@ export class AccountsSidebarView extends ItemView {
         this.contentEl.addClass("cost-accounts-sidebar");
 
         await this.render();
+
+        // 订阅事件总线
+        this.unsubscribeEvents.push(
+            this.plugin.eventBus.on("data-changed", () => this.render())
+        );
     }
 
     async onClose(): Promise<void> {
+        this.unsubscribeEvents.forEach(fn => fn());
+        this.unsubscribeEvents = [];
         this.contentEl.empty();
     }
 
