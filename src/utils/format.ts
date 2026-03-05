@@ -24,3 +24,18 @@ export function formatCompact(num: number): string {
 export function normalizeBalance(balance: number): number {
     return Math.abs(balance) < 0.000001 ? 0 : balance;
 }
+
+/**
+ * Round to 2 decimal places to avoid floating-point drift.
+ * e.g. roundCurrency(0.1 + 0.2) === 0.3
+ */
+export function roundCurrency(value: number): number {
+    return Math.round(value * 100) / 100;
+}
+
+/**
+ * Net amount after refund/discount, safely rounded.
+ */
+export function netAmount(amount: number, deduction: number = 0): number {
+    return roundCurrency(amount - deduction);
+}

@@ -1,6 +1,6 @@
 import { BaseComponent } from '../BaseComponent';
 import { TransactionInfo } from '../../services/transactionService';
-import { formatCompact } from '../../utils/format';
+import { formatCompact, netAmount } from '../../utils/format';
 
 export class TopPayeesWidget extends BaseComponent {
     private transactions: TransactionInfo[];
@@ -25,7 +25,7 @@ export class TopPayeesWidget extends BaseComponent {
             if (txn.txnType === this.type && txn.payee) {
                 let amount = txn.amount;
                 if (this.type === '支出') {
-                    amount = txn.amount - (txn.refund || 0);
+                    amount = netAmount(txn.amount, txn.refund || 0);
                 }
                 payeeMap.set(txn.payee, (payeeMap.get(txn.payee) || 0) + amount);
             }

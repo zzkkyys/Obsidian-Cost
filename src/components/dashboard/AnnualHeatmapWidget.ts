@@ -1,5 +1,6 @@
 import { BaseComponent } from '../BaseComponent';
 import { TransactionInfo } from '../../services/transactionService';
+import { netAmount } from '../../utils/format';
 
 export class AnnualHeatmapWidget extends BaseComponent {
     private transactions: TransactionInfo[];
@@ -22,7 +23,7 @@ export class AnnualHeatmapWidget extends BaseComponent {
         let maxVal = 0;
         for (const txn of this.transactions) {
             if (txn.txnType === '支出' && txn.date.startsWith(String(year))) {
-                const amount = txn.amount - (txn.refund || 0);
+                const amount = netAmount(txn.amount, txn.refund || 0);
                 if (amount > 0) {
                     const current = dataMap.get(txn.date) || 0;
                     dataMap.set(txn.date, current + amount);

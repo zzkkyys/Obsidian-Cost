@@ -1,6 +1,7 @@
 import { App, TFile, CachedMetadata, normalizePath } from "obsidian";
 import { TransactionFrontmatter } from "../types";
 import { getMarkdownFilesInFolder } from "../utils/fileUtils";
+import { roundCurrency } from "../utils/format";
 
 /**
  * 交易信息
@@ -202,7 +203,7 @@ export class TransactionService {
             } else if (txn.txnType === "还款") {
                 // 还款：from 账户减少 (amount - discount)，to 账户增加 amount
                 if (isFrom) {
-                    change -= (txn.amount - (txn.discount || 0));
+                    change -= roundCurrency(txn.amount - (txn.discount || 0));
                 }
                 if (isTo) {
                     change += txn.amount;
@@ -290,7 +291,7 @@ export class TransactionService {
                 return (txn.discount || 0);
             }
             if (isFrom) {
-                return -(txn.amount - (txn.discount || 0));
+                return -roundCurrency(txn.amount - (txn.discount || 0));
             }
             if (isTo) {
                 return txn.amount;

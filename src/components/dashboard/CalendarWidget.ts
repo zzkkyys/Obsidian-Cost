@@ -1,7 +1,7 @@
 import { setIcon } from "obsidian";
 import { BaseComponent } from '../BaseComponent';
 import { TransactionInfo } from '../../services/transactionService';
-import { formatCompact } from '../../utils/format';
+import { formatCompact, netAmount } from '../../utils/format';
 
 export class CalendarWidget extends BaseComponent {
     private transactions: TransactionInfo[];
@@ -126,7 +126,7 @@ export class CalendarWidget extends BaseComponent {
             if (txn.date.startsWith(monthStr)) {
                 count++;
                 if (txn.txnType === "收入") income += txn.amount;
-                else if (txn.txnType === "支出") expense += txn.amount - txn.refund;
+                else if (txn.txnType === "支出") expense += netAmount(txn.amount, txn.refund);
             }
         }
         return { income, expense, count };
@@ -144,7 +144,7 @@ export class CalendarWidget extends BaseComponent {
                 const dayStat = stats.get(txn.date)!;
                 dayStat.count++;
                 if (txn.txnType === "收入") dayStat.income += txn.amount;
-                else if (txn.txnType === "支出") dayStat.expense += txn.amount - txn.refund;
+                else if (txn.txnType === "支出") dayStat.expense += netAmount(txn.amount, txn.refund);
             }
         }
         return stats;

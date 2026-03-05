@@ -1,28 +1,10 @@
-import { App, Modal, TFile, setIcon, Menu, Notice, requestUrl, Platform } from "obsidian";
+import { App, Modal, TFile, setIcon, Menu, Notice } from "obsidian";
 import { TransactionInfo, TransactionService } from "../services/transactionService";
 import { AccountService } from "../services/accountService";
 import { TransactionFrontmatter, AccountInfo } from "../types";
 import CostPlugin from "../main";
-
-type TxnType = "支出" | "收入" | "转账" | "还款";
-
-interface TypeOption {
-    value: TxnType;
-    label: string;
-}
-
-interface CategoryGroup {
-    primary: string;
-    selectableSelf: boolean;
-    children: string[];
-}
-
-const TYPE_OPTIONS: TypeOption[] = [
-    { value: "支出", label: "支出" },
-    { value: "收入", label: "收入" },
-    { value: "转账", label: "转账" },
-    { value: "还款", label: "还款" }
-];
+import { TxnType, TYPE_OPTIONS, collectCategoryGroups, getCategoryIcon, getCategoryColor } from "../utils/categoryUtils";
+import { reverseGeocode, fallbackToIP, fetchNearbyPOIs, buildAddressOptions, getDeviceCoordinates } from "../services/locationService";
 
 export class TransactionEditModal extends Modal {
     private txn: TransactionInfo;
@@ -88,8 +70,6 @@ export class TransactionEditModal extends Modal {
             this.close();
         };
 
-
-        // const accounts = this.accountService.getAccounts().map((a) => a.fileName); // Removed as we use getAccounts() in modal
         const personsOptions = Array.from(new Set(this.service.getTransactions().flatMap((t) => t.persons || []).filter((n) => n && n.trim() !== ""))).sort();
 
         let date = this.txn.date || this.getTodayDate();
@@ -110,7 +90,6 @@ export class TransactionEditModal extends Modal {
         let refundTo = this.txn.refundTo || "";
 
         const page = contentEl.createDiv({ cls: "cost-add-txn-page" });
-        // Removed typeTabs creation from here
 
         TYPE_OPTIONS.forEach((opt) => {
             const btn = typeTabsChanged.createEl("button", {
@@ -149,7 +128,7 @@ export class TransactionEditModal extends Modal {
         const renderCategoryGrid = () => {
             categoryGrid.empty();
             categoryButtons.clear();
-            const categoryGroups = this.collectCategoryGroups(type);
+            const categoryGroups = collectCategoryGroups(this.service.getTransactions(), type);
 
             if (categoryGroups.length === 0) {
                 categoryGrid.createDiv({ text: "无可用分类", cls: "cost-add-txn-empty-cat" });
@@ -163,7 +142,7 @@ export class TransactionEditModal extends Modal {
                 });
 
                 const iconCircle = btn.createDiv({ cls: "cost-add-txn-category-icon" });
-                iconCircle.style.background = this.getCategoryColor(cat);
+                iconCircle.style.background = getCategoryColor(cat);
 
                 const iconPath = this.plugin.iconResolver.resolveCategoryIcon(cat);
                 if (iconPath) {
@@ -171,7 +150,7 @@ export class TransactionEditModal extends Modal {
                     img.src = iconPath;
                     img.alt = cat;
                 } else {
-                    const iconName = this.getCategoryIcon(cat);
+                    const iconName = getCategoryIcon(cat);
                     setIcon(iconCircle, iconName);
                 }
 
@@ -194,7 +173,7 @@ export class TransactionEditModal extends Modal {
                         );
                     }
 
-                    group.children.forEach((child) => {
+                    group.children.forEach((child: string) => {
                         const full = `${cat}/${child}`;
                         menu.addItem((item) =>
                             item.setTitle(child).onClick(() => {
@@ -224,7 +203,6 @@ export class TransactionEditModal extends Modal {
             addBtn.createDiv({ cls: "cost-add-txn-category-label", text: "添加" });
 
             addBtn.onclick = async () => {
-                // Prompt for new category name
                 const promptModal = new Modal(this.app);
                 promptModal.titleEl.setText(`添加${type}分类`);
                 const inputEl = promptModal.contentEl.createEl("input", {
@@ -243,7 +221,6 @@ export class TransactionEditModal extends Modal {
                     const newCat = inputEl.value.trim();
                     if (!newCat) return;
 
-                    // Add to settings
                     if (type === "支出") {
                         if (!this.plugin.settings.expenseCategories.includes(newCat)) {
                             this.plugin.settings.expenseCategories.push(newCat);
@@ -253,10 +230,6 @@ export class TransactionEditModal extends Modal {
                             this.plugin.settings.incomeCategories.push(newCat);
                         }
                     } else {
-                        // For Transfer/Repayment, usually fixed categories? Or allow adding to Expense?
-                        // Let's assume we add to Expense if type is confusing, or just alert?
-                        // Actually Repayment/Transfer might share Expense categories or have their own.
-                        // For now support Expense/Income.
                         if (!this.plugin.settings.expenseCategories.includes(newCat)) {
                             this.plugin.settings.expenseCategories.push(newCat);
                         }
@@ -265,7 +238,7 @@ export class TransactionEditModal extends Modal {
 
                     category = newCat;
                     promptModal.close();
-                    renderCategoryGrid(); // Re-render to show new category
+                    renderCategoryGrid();
                 };
 
                 confirmBtn.onclick = save;
@@ -294,12 +267,8 @@ export class TransactionEditModal extends Modal {
                     onClear();
                 };
             }
-            return { chip, textSpan }; // Return elements to update later
+            return { chip, textSpan };
         };
-
-        // 1. Account Chip
-        // 1. Account Chip
-        // Reverted to Menu based on user feedback, but with icons.
 
         const showAccountMenu = (anchor: HTMLElement, onSelect: (acc: AccountInfo) => void) => {
             const accounts = this.accountService.getAccounts();
@@ -313,7 +282,6 @@ export class TransactionEditModal extends Modal {
             menuEl.style.left = `${rect.left}px`;
             menuEl.style.top = `${rect.bottom + 4}px`;
 
-            // Click outside to close
             const closeMenu = () => {
                 menuEl.remove();
                 document.removeEventListener("click", outsideClickListener);
@@ -323,15 +291,11 @@ export class TransactionEditModal extends Modal {
                     closeMenu();
                 }
             };
-            // Delay adding listener to avoid immediate close
             setTimeout(() => document.addEventListener("click", outsideClickListener), 0);
 
             accounts.forEach(acc => {
                 const itemEl = menuEl.createDiv({ cls: "menu-item" });
-
                 const iconContainer = itemEl.createDiv({ cls: "menu-item-icon" });
-
-                // Use IconResolver for icon lookup
                 const iconSrc = this.plugin.iconResolver.resolveAccountIcon(acc);
 
                 if (iconSrc) {
@@ -376,9 +340,8 @@ export class TransactionEditModal extends Modal {
             refreshSummary();
         });
 
-        // 2. Payee Chip (New)
+        // 3. Payee Chip
         const payeeChip = createHelperChip("store", "商家", () => {
-            // Simple Prompt for Payee
             const promptModal = new Modal(this.app);
             promptModal.titleEl.setText("商家/收款人");
             const inputEl = promptModal.contentEl.createEl("input", {
@@ -412,7 +375,7 @@ export class TransactionEditModal extends Modal {
             refreshSummary();
         });
 
-        // Discount Chip (Popup Input)
+        // 4. Discount Chip
         const discountChip = createHelperChip("ticket", "优惠", () => {
             if (type !== "还款" && type !== "支出") return;
 
@@ -420,7 +383,6 @@ export class TransactionEditModal extends Modal {
             const currentVal = isRefund ? refund : discount;
             const title = isRefund ? "输入退款金额" : "输入优惠金额";
 
-            // Simple Prompt Modal
             const promptModal = new Modal(this.app);
             promptModal.titleEl.setText(title);
             promptModal.contentEl.createEl("p", { text: "请输入金额：" });
@@ -457,8 +419,6 @@ export class TransactionEditModal extends Modal {
             promptModal.open();
         });
 
-
-
         // 5. Tags
         const tagsChip = createHelperChip("tag", "标签", () => {
             const menu = new Menu();
@@ -468,7 +428,6 @@ export class TransactionEditModal extends Modal {
             }
             personsOptions.forEach((name) => {
                 menu.addItem((item) => item.setTitle(name).onClick(() => {
-                    // Update to simple array logic
                     const values = personsStr ? personsStr.split(/[,，]\s*/).filter(Boolean) : [];
                     if (!values.includes(name)) values.push(name);
                     personsStr = values.join(", ");
@@ -480,11 +439,8 @@ export class TransactionEditModal extends Modal {
             menu.showAtPosition({ x: rect.left, y: rect.bottom + 4 });
         });
 
-
-
         // Helper to update chip states
         const updateTopHelperChips = () => {
-            // Source Account Logic
             const showSource = type === "支出" || type === "转账" || type === "还款";
             sourceAccountChip.chip.style.display = showSource ? "flex" : "none";
 
@@ -496,7 +452,6 @@ export class TransactionEditModal extends Modal {
             sourceAccountChip.textSpan.setText(from || sourceLabel);
             sourceAccountChip.chip.toggleClass("has-value", Boolean(from));
 
-            // Target Account Logic
             const showTarget = type === "收入" || type === "转账" || type === "还款";
             targetAccountChip.chip.style.display = showTarget ? "flex" : "none";
 
@@ -508,21 +463,16 @@ export class TransactionEditModal extends Modal {
             targetAccountChip.textSpan.setText(to || targetLabel);
             targetAccountChip.chip.toggleClass("has-value", Boolean(to));
 
-            // Payee
             payeeChip.textSpan.setText(payee || "商家");
             payeeChip.chip.toggleClass("has-value", Boolean(payee));
             payeeChip.chip.style.display = (type === "转账") ? "none" : "flex";
 
-            // Tags
             tagsChip.chip.toggleClass("has-value", Boolean(personsStr && personsStr.length > 0));
 
-            // Discount / Refund Toggle
             const showDiscount = type === "支出" || type === "还款";
             discountChip.chip.style.display = showDiscount ? "flex" : "none";
             discountChip.chip.toggleClass("has-value", (type === "还款" && discount > 0) || (type === "支出" && refund > 0));
         };
-
-
 
         // --- Fused Card Section ---
         const fusedCard = page.createDiv({ cls: "cost-fused-card" });
@@ -538,126 +488,23 @@ export class TransactionEditModal extends Modal {
             addressBtn.addClass("is-loading");
             addressText.setText("定位中...");
 
-            // 反向地理编码辅助函数
-            const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
-                try {
-                    const response = await requestUrl({
-                        url: `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
-                        headers: { "Accept-Language": "zh-CN" }
-                    });
+            const coords = await getDeviceCoordinates();
 
-                    if (response.status === 200) {
-                        const data = response.json;
-                        const addr = data.address;
-                        let fullAddress = "";
+            if (coords) {
+                latitude = coords.lat;
+                longitude = coords.lng;
 
-                        // 省/州
-                        if (addr.state) fullAddress += addr.state;
-                        // 市
-                        if (addr.city && addr.city !== addr.state) fullAddress += addr.city;
-                        // 区
-                        if (addr.city_district) fullAddress += addr.city_district;
-                        if (addr.county && addr.county !== addr.city_district) fullAddress += addr.county;
-                        // 镇/乡
-                        if (addr.town) fullAddress += addr.town;
-                        if (addr.village) fullAddress += addr.village;
-                        // 街道/社区/小区
-                        if (addr.suburb && !fullAddress.includes(addr.suburb)) fullAddress += addr.suburb;
-                        if (addr.neighbourhood && !fullAddress.includes(addr.neighbourhood)) fullAddress += addr.neighbourhood;
-                        if (addr.quarter && !fullAddress.includes(addr.quarter)) fullAddress += addr.quarter;
-                        // 路名
-                        if (addr.road && !fullAddress.includes(addr.road)) fullAddress += addr.road;
-                        // 门牌号
-                        if (addr.house_number) fullAddress += addr.house_number + "号";
-                        // 建筑/商铺/设施
-                        const poi = addr.building || addr.amenity || addr.shop || addr.leisure || addr.tourism;
-                        if (poi && !fullAddress.includes(poi)) fullAddress += poi;
-
-                        return fullAddress || data.display_name || "";
-                    }
-                } catch (e) {
-                    console.error("Reverse geocoding failed", e);
-                }
-                return "";
-            };
-
-            // IP定位回退方案
-            const fallbackToIP = async () => {
-                try {
-                    const res = await requestUrl({ url: "https://ipapi.co/json/" });
-                    if (res.status === 200) {
-                        const data = res.json;
-                        let ipAddr = data.city || data.country_name || "未知位置";
-                        if (data.region && data.region !== data.city) ipAddr += `, ${data.region}`;
-                        address = ipAddr;
-                        if (data.latitude && data.longitude) {
-                            latitude = data.latitude;
-                            longitude = data.longitude;
-                        }
-                        new Notice("已通过网络定位: " + address);
-                        addressText.setText(address);
-                    } else {
-                        throw new Error("IP API failed");
-                    }
-                } catch {
-                    new Notice("定位完全失败");
-                    addressText.setText("定位失败");
-                }
-                addressBtn.removeClass("is-loading");
-            };
-
-            // 搜索附近 POI（通过 Overpass API）
-            const fetchNearbyPOIs = async (lat: number, lng: number): Promise<string[]> => {
-                try {
-                    const query = `[out:json][timeout:10];(node(around:500,${lat},${lng})["name"]["amenity"];node(around:500,${lat},${lng})["name"]["shop"];node(around:500,${lat},${lng})["name"]["leisure"];node(around:500,${lat},${lng})["name"]["tourism"];way(around:300,${lat},${lng})["name"]["building"];);out center 10;`;
-                    const response = await requestUrl({
-                        url: `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`
-                    });
-                    if (response.status === 200) {
-                        const data = response.json;
-                        const names: string[] = [];
-                        const seen = new Set<string>();
-                        for (const el of (data.elements || [])) {
-                            const name = el.tags?.name;
-                            if (name && !seen.has(name)) {
-                                seen.add(name);
-                                names.push(name);
-                            }
-                            if (names.length >= 10) break;
-                        }
-                        return names;
-                    }
-                } catch (e) {
-                    console.warn("Nearby POI search failed", e);
-                }
-                return [];
-            };
-
-            // 坐标获取成功后的处理：显示地址选择菜单
-            const onCoordsObtained = async (lat: number, lng: number) => {
-                latitude = lat;
-                longitude = lng;
-
-                // 并行获取反向地理编码和附近 POI
                 const [geocoded, nearbyPois] = await Promise.all([
-                    reverseGeocode(lat, lng),
-                    fetchNearbyPOIs(lat, lng)
+                    reverseGeocode(coords.lat, coords.lng),
+                    fetchNearbyPOIs(coords.lat, coords.lng)
                 ]);
 
                 addressBtn.removeClass("is-loading");
 
-                // 构建候选地址列表
-                const options: string[] = [];
-                if (geocoded) options.push(geocoded);
-                nearbyPois.forEach(poi => {
-                    // 将 POI 名拼到基础地址后面作为完整选项
-                    const fullOption = geocoded ? `${geocoded} · ${poi}` : poi;
-                    if (!options.includes(fullOption)) options.push(fullOption);
-                });
+                const options = buildAddressOptions(geocoded, nearbyPois);
 
-                // 如果只有 0 或 1 个选项，直接使用
                 if (options.length <= 1) {
-                    address = geocoded || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                    address = geocoded || `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`;
                     addressText.setText(geocoded ? address : "已获取坐标");
                     if (geocoded) new Notice("已定位: " + address);
                     return;
@@ -665,10 +512,7 @@ export class TransactionEditModal extends Modal {
 
                 // 多个选项：弹出选择菜单
                 const menu = new Menu();
-                menu.addItem(item => item
-                    .setTitle("📍 选择您的位置")
-                    .setDisabled(true)
-                );
+                menu.addItem(item => item.setTitle("📍 选择您的位置").setDisabled(true));
                 menu.addSeparator();
 
                 options.forEach((opt, idx) => {
@@ -709,115 +553,27 @@ export class TransactionEditModal extends Modal {
                     })
                 );
 
-                // 在地址按钮下方弹出菜单
                 const rect = addressBtn.getBoundingClientRect();
                 menu.showAtPosition({ x: rect.left, y: rect.bottom + 4 });
 
-                // 同时先设置第一个选项作为默认
                 address = options[0] || "";
                 addressText.setText(address);
-            };
-
-            // Windows 平台：使用临时 PowerShell 脚本调用 WinRT Location API
-            if (Platform.isWin && Platform.isDesktop) {
-                try {
-                    const { exec } = require("child_process") as typeof import("child_process");
-                    const fs = require("fs") as typeof import("fs");
-                    const os = require("os") as typeof import("os");
-                    const path = require("path") as typeof import("path");
-
-                    const scriptPath = path.join(os.tmpdir(), `obsidian_geo_${Date.now()}.ps1`);
-
-                    const psContent = [
-                        'try {',
-                        '    # Load WinRT support from .NET runtime directory',
-                        '    $runtimeDir = [System.Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory()',
-                        '    $dllPath = Join-Path $runtimeDir "System.Runtime.WindowsRuntime.dll"',
-                        '    if (Test-Path $dllPath) {',
-                        '        [System.Reflection.Assembly]::LoadFrom($dllPath) | Out-Null',
-                        '    } else {',
-                        '        Add-Type -AssemblyName System.Runtime.WindowsRuntime -ErrorAction Stop',
-                        '    }',
-                        '',
-                        '    # Load Geolocator WinRT type',
-                        '    [Windows.Devices.Geolocation.Geolocator,Windows.Devices.Geolocation,ContentType=WindowsRuntime] | Out-Null',
-                        '',
-                        '    # Setup async helper for WinRT',
-                        '    $asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {',
-                        "        $_.Name -eq 'AsTask' -and",
-                        '        $_.GetParameters().Count -eq 1 -and',
-                        "        $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1'",
-                        '    })[0]',
-                        '',
-                        '    if ($null -eq $asTaskGeneric) { throw "AsTask method not found" }',
-                        '',
-                        '    Function Await($WinRtTask, $ResultType) {',
-                        '        $asTask = $asTaskGeneric.MakeGenericMethod($ResultType)',
-                        '        $netTask = $asTask.Invoke($null, @($WinRtTask))',
-                        '        $netTask.Wait(-1) | Out-Null',
-                        '        $netTask.Result',
-                        '    }',
-                        '',
-                        '    $gl = New-Object Windows.Devices.Geolocation.Geolocator',
-                        '    $gl.DesiredAccuracyInMeters = 10',
-                        '    $pos = Await ($gl.GetGeopositionAsync()) ([Windows.Devices.Geolocation.Geoposition])',
-                        '    $coord = $pos.Coordinate.Point.Position',
-                        '    @{lat=$coord.Latitude;lng=$coord.Longitude} | ConvertTo-Json -Compress',
-                        '} catch {',
-                        '    Write-Error $_.Exception.Message',
-                        '    exit 1',
-                        '}',
-                    ].join('\n');
-
-                    fs.writeFileSync(scriptPath, psContent, { encoding: 'utf8' });
-
-                    await new Promise<void>((resolve) => {
-                        exec(
-                            `powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${scriptPath}"`,
-                            { timeout: 25000 },
-                            async (error: Error | null, stdout: string, stderr: string) => {
-                                // 清理临时脚本
-                                try { fs.unlinkSync(scriptPath); } catch { /* ignore */ }
-
-                                if (!error && stdout && stdout.trim()) {
-                                    try {
-                                        const result = JSON.parse(stdout.trim());
-                                        if (result.lat && result.lng) {
-                                            await onCoordsObtained(result.lat, result.lng);
-                                            resolve();
-                                            return;
-                                        }
-                                    } catch (parseErr) {
-                                        console.warn("PowerShell location parse error:", parseErr);
-                                    }
-                                }
-                                console.warn("Windows Location API failed, falling back to IP", error, stderr);
-                                await fallbackToIP();
-                                resolve();
-                            }
-                        );
-                    });
-                } catch (e) {
-                    console.error("Windows location error:", e);
-                    await fallbackToIP();
+            } else {
+                // 坐标获取失败，回退到 IP 定位
+                const ipResult = await fallbackToIP();
+                if (ipResult.address) {
+                    address = ipResult.address;
+                    if (ipResult.coords) {
+                        latitude = ipResult.coords.lat;
+                        longitude = ipResult.coords.lng;
+                    }
+                    new Notice("已通过网络定位: " + address);
+                    addressText.setText(address);
+                } else {
+                    new Notice("定位完全失败");
+                    addressText.setText("定位失败");
                 }
-            }
-            // 非 Windows 平台：使用 navigator.geolocation
-            else if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    async (position) => {
-                        await onCoordsObtained(position.coords.latitude, position.coords.longitude);
-                    },
-                    async (err) => {
-                        console.warn("Geolocation error:", err);
-                        await fallbackToIP();
-                    },
-                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-                );
-            }
-            // 完全不支持 geolocation
-            else {
-                await fallbackToIP();
+                addressBtn.removeClass("is-loading");
             }
         };
 
@@ -865,8 +621,6 @@ export class TransactionEditModal extends Modal {
             memo = memoInput.value;
         };
 
-
-
         // Hidden DateTime Picker Row
         const dateTimeRow = fusedCard.createDiv({ cls: "cost-datetime-picker-row" });
         const dateInput = dateTimeRow.createEl("input", {
@@ -892,8 +646,6 @@ export class TransactionEditModal extends Modal {
         timePill.onclick = () => {
             dateTimeRow.toggleClass("is-visible", !dateTimeRow.hasClass("is-visible"));
         };
-
-
 
         const summary = page.createDiv({ cls: "cost-add-txn-summary" });
 
@@ -941,7 +693,6 @@ export class TransactionEditModal extends Modal {
                 .filter((s) => s.length > 0);
 
             let savedCount = 0;
-            // Base Date/Time for increments
             const baseTimeStr = this.normalizeTime(timeInput.value || time);
             const [bH, bM, bS] = baseTimeStr.split(":").map(Number);
             const baseDateObj = new Date(dateInput.value || date);
@@ -958,12 +709,10 @@ export class TransactionEditModal extends Modal {
                 const amtVal = this.parseAmount(rawAmt);
                 if (amtVal <= 0) continue;
 
-                // Adjust time by i seconds
                 const currentDescDate = new Date(baseDateObj.getTime() + i * 1000);
                 const cHours = String(currentDescDate.getHours()).padStart(2, '0');
                 const cMinutes = String(currentDescDate.getMinutes()).padStart(2, '0');
                 const cSeconds = String(currentDescDate.getSeconds()).padStart(2, '0');
-                // Standard time format is HH:MM or HH:MM:SS
                 const timeWithSeconds = `${cHours}:${cMinutes}:${cSeconds}`;
 
                 const txnData: Partial<TransactionFrontmatter> = {
@@ -987,13 +736,11 @@ export class TransactionEditModal extends Modal {
 
                 if (i === 0 && this.file) {
                     await this.service.updateTransaction(this.file, txnData);
-                    // 如果日期变更，移动文件到新日期文件夹
                     const newDateStr = dateInput.value || date;
                     this.file = await this.service.moveTransactionToDateFolder(this.file, newDateStr);
                 } else {
                     const newFile = await this.service.createTransaction();
                     await this.service.updateTransaction(newFile, txnData);
-                    // 新建的交易也需要移动到正确的日期文件夹
                     const newDateStr = dateInput.value || date;
                     await this.service.moveTransactionToDateFolder(newFile, newDateStr);
                 }
@@ -1008,8 +755,6 @@ export class TransactionEditModal extends Modal {
             }
         };
 
-
-
         const syncTypeState = () => {
             typeButtons.forEach((btn, key) => {
                 btn.toggleClass("is-active", key === type);
@@ -1022,7 +767,6 @@ export class TransactionEditModal extends Modal {
         const refreshSummary = () => {
             const summaryParts: string[] = [];
 
-            // 摘要显示逻辑优化
             if (type === "支出" && from) summaryParts.push(`从 ${from} 支付`);
             if (type === "收入" && to) summaryParts.push(`存入 ${to}`);
             if ((type === "转账" || type === "还款") && from && to) summaryParts.push(`${from} -> ${to}`);
@@ -1038,101 +782,20 @@ export class TransactionEditModal extends Modal {
         syncCategoryState();
         refreshSummary();
 
-        // Header actions (Open File) moved to top
-
-
         window.setTimeout(() => amountInput.focus(), 0);
     }
 
     onClose() {
         this.modalEl.removeClass("cost-add-txn-modal");
         this.contentEl.empty();
-        // Remove header actions if any
         this.modalEl.findAll(".cost-modal-header-actions").forEach(el => el.remove());
 
-        // 核心改动：如果是新建交易且没有保存，则删除该临时文件
         if (this.isNewTransaction && !this.isSaved && this.file) {
             this.app.vault.delete(this.file).catch(err => {
                 console.error("[Obsidian Cost] Failed to cleanup unsaved transaction file:", err);
             });
         }
     }
-
-    private collectCategoryGroups(type: TxnType): CategoryGroup[] {
-        const txCategories = this.service
-            .getTransactions()
-            .filter(t => t.txnType === type)
-            .map((t) => t.category)
-            .filter((c): c is string => typeof c === "string" && Boolean(c.trim() !== ""))
-            .map((c) => c.trim());
-
-        if (txCategories.length === 0) {
-            if (type === "收入") {
-                return [
-                    { primary: "工资", selectableSelf: true, children: [] },
-                    { primary: "奖金", selectableSelf: true, children: [] },
-                    { primary: "理财", selectableSelf: true, children: [] },
-                    { primary: "收回", selectableSelf: true, children: [] },
-                    { primary: "其他", selectableSelf: true, children: [] }
-                ];
-            } else if (type === "转账") {
-                return [
-                    { primary: "转账", selectableSelf: true, children: [] },
-                    { primary: "充值", selectableSelf: true, children: [] },
-                    { primary: "提现", selectableSelf: true, children: [] },
-                    { primary: "其他", selectableSelf: true, children: [] }
-                ];
-            } else if (type === "还款") {
-                return [
-                    { primary: "信用卡", selectableSelf: true, children: [] },
-                    { primary: "房贷", selectableSelf: true, children: [] },
-                    { primary: "车贷", selectableSelf: true, children: [] },
-                    { primary: "借款", selectableSelf: true, children: [] },
-                    { primary: "其他", selectableSelf: true, children: [] }
-                ];
-            }
-            // Default Expenses or fallback
-            return [
-                { primary: "餐饮", selectableSelf: true, children: [] },
-                { primary: "交通", selectableSelf: true, children: [] },
-                { primary: "购物", selectableSelf: true, children: [] },
-                { primary: "居家", selectableSelf: true, children: [] },
-                { primary: "娱乐", selectableSelf: true, children: [] },
-                { primary: "医疗", selectableSelf: true, children: [] },
-                { primary: "学习", selectableSelf: true, children: [] },
-                { primary: "其他", selectableSelf: true, children: [] }
-            ];
-        }
-
-        const groupMap = new Map<string, { selectableSelf: boolean; children: Set<string> }>();
-
-        txCategories.forEach((cat) => {
-            const parts = cat.split("/").map((p) => p.trim()).filter(Boolean);
-            const primary = parts[0];
-            if (!primary) return;
-            if (!groupMap.has(primary)) {
-                groupMap.set(primary, { selectableSelf: false, children: new Set<string>() });
-            }
-            const group = groupMap.get(primary);
-            if (!group) return;
-
-            if (parts.length === 1) {
-                group.selectableSelf = true;
-            } else {
-                group.children.add(parts.slice(1).join("/"));
-            }
-        });
-
-        return Array.from(groupMap.entries())
-            .map(([primary, value]) => ({
-                primary,
-                selectableSelf: value.selectableSelf,
-                children: Array.from(value.children).sort((a, b) => a.localeCompare(b, "zh-Hans-CN"))
-            }))
-            .sort((a, b) => a.primary.localeCompare(b.primary, "zh-Hans-CN"));
-    }
-
-    // getCategoryImagePath replaced by this.plugin.iconResolver.resolveCategoryIcon()
 
     private createFieldInput(container: HTMLElement, label: string, value: string, onInput: (value: string) => void): HTMLInputElement {
         const field = container.createDiv({ cls: "cost-add-txn-field" });
@@ -1169,99 +832,7 @@ export class TransactionEditModal extends Modal {
     private normalizeTime(value: string): string {
         const v = value.trim();
         if (!v) return "00:00:00";
-        // HH:MM -> HH:MM:00
         if (v.length === 5 && v[2] === ":") return `${v}:00`;
         return v;
     }
-
-    private getCategoryIcon(category: string): string {
-        const key = category.toLowerCase();
-
-        // 餐饮/食品
-        if (key.includes("餐") || key.includes("food") || key.includes("饭") || key.includes("吃") || key.includes("喝")) return "utensils-crossed";
-
-        // 交通/车辆
-        if (key.includes("交") || key.includes("车") || key.includes("travel") || key.includes("路") || key.includes("油")) return "bus";
-
-        // 购物/消费/代买
-        if (key.includes("购") || key.includes("shop") || key.includes("买") || key.includes("物")) return "shopping-bag";
-
-        // 娱乐/游戏
-        if (key.includes("娱") || key.includes("play") || key.includes("游") || key.includes("玩")) return "gamepad-2";
-
-        // 医疗/健康/药
-        if (key.includes("医") || key.includes("health") || key.includes("药")) return "heart-pulse";
-
-        // 学习/书籍/科研/教育
-        if (key.includes("学") || key.includes("book") || key.includes("研") || key.includes("教") || key.includes("课")) return "book-open";
-
-        // 居住/房屋/住房
-        if (key.includes("房") || key.includes("居") || key.includes("home") || key.includes("住")) return "house";
-
-        // 收入/工资/奖金/红包/收回
-        if (key.includes("收") || key.includes("income") || key.includes("薪") || key.includes("资") || key.includes("奖")) return "badge-dollar-sign";
-        if (key.includes("红包") || key.includes("礼")) return "gift";
-
-        // 办公/工作
-        if (key.includes("办") || key.includes("公") || key.includes("work")) return "briefcase";
-
-        // 服饰/衣服
-        if (key.includes("服") || key.includes("衣") || key.includes("饰") || key.includes("cloth")) return "shirt";
-
-        // 快递/物流
-        if (key.includes("快") || key.includes("递") || key.includes("邮")) return "truck";
-
-        // 通讯/电话
-        if (key.includes("通") || key.includes("话") || key.includes("phone")) return "phone";
-
-        // 网络/服务器/软件/应用
-        if (key.includes("网") || key.includes("net") || key.includes("server") || key.includes("软") || key.includes("app") || key.includes("应用")) return "app-window";
-
-        // 日用/生活/人生
-        if (key.includes("日") || key.includes("用") || key.includes("杂") || key.includes("daily") || key.includes("生") || key.includes("人") || key.includes("life")) return "sun";
-
-        // 度假/旅游
-        if (key.includes("度") || key.includes("假") || key.includes("holiday")) return "palmtree";
-
-        // 订阅
-        if (key.includes("订") || key.includes("阅") || key.includes("sub")) return "calendar-clock";
-
-        // 转账
-        if (key.includes("转") || key.includes("transfer")) return "arrow-right-left";
-
-        // 还款/信贷/分期
-        if (key.includes("还") || key.includes("贷") || key.includes("credit") || key.includes("分期")) return "credit-card";
-
-        // 出售/闲置/标签
-        if (key.includes("售") || key.includes("卖") || key.includes("sale") || key.includes("闲") || key.includes("tag")) return "tag";
-
-        // 对齐/调整
-        if (key.includes("对") || key.includes("齐") || key.includes("align")) return "git-merge";
-
-        // 其他
-        if (key.includes("他") || key.includes("other")) return "box-select";
-
-        return "circle";
-    }
-
-    private getCategoryColor(category: string): string {
-        const palette = [
-            "#ffe6e6",
-            "#ffefe0",
-            "#fff6d8",
-            "#e7f7e7",
-            "#e4f4ff",
-            "#efe9ff",
-            "#f6e9ff",
-            "#eaf3f3"
-        ];
-
-        let hash = 0;
-        for (let i = 0; i < category.length; i += 1) {
-            hash = (hash * 31 + category.charCodeAt(i)) >>> 0;
-        }
-        const color = palette[hash % palette.length];
-        return color ?? "#eaf3f3";
-    }
 }
-

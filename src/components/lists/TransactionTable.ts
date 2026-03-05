@@ -1,7 +1,7 @@
 import { setIcon, TFile } from "obsidian";
 import { BaseComponent } from "../BaseComponent";
 import { TransactionInfo } from "../../services/transactionService";
-import { formatCompact, formatThousands } from "../../utils/format";
+import { formatCompact, formatThousands, netAmount } from "../../utils/format";
 
 export interface TransactionTableOptions {
     onSelectionChange?: (selected: Set<string>) => void;
@@ -49,8 +49,8 @@ export class TransactionTable extends BaseComponent {
         if (!this.sortOrder) return;
 
         this.transactions.sort((a, b) => {
-            const amountA = a.amount - (a.refund || 0);
-            const amountB = b.amount - (b.refund || 0);
+            const amountA = netAmount(a.amount, a.refund || 0);
+            const amountB = netAmount(b.amount, b.refund || 0);
 
             if (this.sortOrder === "asc") {
                 return amountA - amountB;
@@ -221,7 +221,7 @@ export class TransactionTable extends BaseComponent {
             if (isRefundContext) {
                 displayAmount = txn.refund || 0;
             } else {
-                displayAmount = txn.amount - (txn.refund || 0);
+                displayAmount = netAmount(txn.amount, txn.refund || 0);
             }
             const amtText = formatCompact(displayAmount);
 
@@ -251,7 +251,7 @@ export class TransactionTable extends BaseComponent {
                     let inAmt = txn.amount;
 
                     if (txn.txnType === "还款" && txn.discount) {
-                        outAmt = txn.amount - txn.discount;
+                        outAmt = netAmount(txn.amount, txn.discount);
                     }
 
                     // Show flow: From (-Out) -> To (+In)

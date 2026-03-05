@@ -2431,25 +2431,21 @@ Obsidian Cost Plugin Styles
 }
 
 /* Load More Button */
-.cost-load-more {
-	width: 100%;
-	text-align: center;
-	padding: 10px;
-	margin-top: 10px;
-	background: var(--background-secondary);
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 6px;
-	cursor: pointer;
-	color: var(--text-muted);
-	font-size: 13px;
-	transition: all 0.2s;
+.cost-virtual-sentinel {
+	/* Invisible trigger element for IntersectionObserver */
+	pointer-events: none;
 }
 
-.cost-load-more:hover {
-	background: var(--background-modifier-hover);
-	color: var(--text-normal);
-	border-color: var(--interactive-accent);
+.cost-list-end-hint {
+	width: 100%;
+	text-align: center;
+	padding: 12px;
+	margin-top: 8px;
+	color: var(--text-faint);
+	font-size: 12px;
+	letter-spacing: 0.5px;
 }
+
 
 /* Transaction List Icons (SVG) */
 .cost-txn-icon {

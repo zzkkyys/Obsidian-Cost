@@ -3,7 +3,7 @@ import { IconResolver } from '../../services/iconResolver';
 import { BaseComponent } from '../BaseComponent';
 import { TransactionInfo } from '../../services/transactionService';
 import { AccountInfo } from '../../types';
-import { formatThousands } from '../../utils/format';
+import { netAmount, formatThousands } from '../../utils/format';
 
 export interface TransactionListOptions {
     onTransactionClick?: (txn: TransactionInfo) => void;
@@ -12,9 +12,18 @@ export interface TransactionListOptions {
     onTimeClick?: (txn: TransactionInfo) => void;
     customIconPath?: string;
     iconResolver?: IconResolver;
-    activeAccount?: string | null; // Added
+    activeAccount?: string | null;
 }
 
+/**
+ * 虚拟滚动交易列表
+ *
+ * 采用 IntersectionObserver 驱动的渐进渲染策略：
+ * - 初始渲染第一批日期分组（BATCH_SIZE 条交易）
+ * - 在列表尾部放置哨兵元素
+ * - 哨兵进入视口时自动加载下一批
+ * - 无需固定行高，天然支持可变高度的日期分组
+ */
 export class TransactionList extends BaseComponent {
     private app: App;
     private transactions: TransactionInfo[];
@@ -22,8 +31,28 @@ export class TransactionList extends BaseComponent {
     private options: TransactionListOptions;
     private runningBalances: Map<string, Map<string, { before: number, after: number }>> | null = null;
 
-    // Cache for account icons/details
     private accountMap: Map<string, AccountInfo> = new Map();
+
+    /** 每批渲染的交易条数 */
+    private static readonly BATCH_SIZE = 40;
+
+    /** 已渲染的交易数量 */
+    private renderedCount = 0;
+
+    /** 按日期分组后的有序数据 */
+    private dateGroups: Array<{ date: string; transactions: TransactionInfo[] }> = [];
+
+    /** 已渲染的日期分组索引 */
+    private renderedGroupIndex = 0;
+
+    /** IntersectionObserver 实例 */
+    private observer: IntersectionObserver | null = null;
+
+    /** 列表容器（用于追加内容） */
+    private listContainer: HTMLElement | null = null;
+
+    /** 哨兵元素 */
+    private sentinel: HTMLElement | null = null;
 
     constructor(
         containerEl: HTMLElement,
@@ -68,50 +97,161 @@ export class TransactionList extends BaseComponent {
         return this.accountMap.get(name);
     }
 
-    private renderLimit = 50;
+    // ───────── 分组逻辑 ─────────
 
-    protected render(): void {
-        const listContainer = this.containerEl.createDiv({ cls: "cost-transactions-list-container" });
-
-        if (this.transactions.length === 0) {
-            listContainer.createDiv({ cls: "cost-empty-message", text: "暂无交易记录" });
-            return;
-        }
-
-        // Apply Limit
-        const displayTxns = this.transactions.slice(0, this.renderLimit);
-
-        // Group by Date
+    private buildDateGroups(): void {
         const grouped = new Map<string, TransactionInfo[]>();
-        for (const txn of displayTxns) {
+        for (const txn of this.transactions) {
             const date = txn.date || "未知日期";
             if (!grouped.has(date)) {
                 grouped.set(date, []);
             }
             grouped.get(date)!.push(txn);
         }
+        this.dateGroups = Array.from(grouped.entries()).map(([date, transactions]) => ({ date, transactions }));
+    }
 
-        // Render Groups
-        try {
-            for (const [date, txns] of grouped) {
-                this.renderDateGroup(listContainer, date, txns);
-            }
+    // ───────── 渲染入口 ─────────
 
-            // Load More Button
-            if (this.transactions.length > this.renderLimit) {
-                const loadMoreBtn = listContainer.createDiv({ cls: "cost-load-more" });
-                loadMoreBtn.setText(`加载更多 (${this.transactions.length - this.renderLimit} 条)`);
-                loadMoreBtn.onclick = () => {
-                    this.renderLimit += 50;
-                    this.update(); // Re-render with new limit
-                };
-            }
+    protected render(): void {
+        // 重置状态
+        this.renderedCount = 0;
+        this.renderedGroupIndex = 0;
+        this.destroyObserver();
 
-        } catch (e) {
-            console.error("[Cost] Render error:", e);
-            listContainer.createDiv({ cls: "cost-error-message", text: `渲染错误: ${String(e)}` });
+        this.listContainer = this.containerEl.createDiv({ cls: "cost-transactions-list-container" });
+
+        if (this.transactions.length === 0) {
+            this.listContainer.createDiv({ cls: "cost-empty-message", text: "暂无交易记录" });
+            return;
+        }
+
+        // 构建日期分组
+        this.buildDateGroups();
+
+        // 渲染第一批
+        this.renderNextBatch();
+
+        // 如果还有更多数据，设置 IntersectionObserver
+        if (this.renderedCount < this.transactions.length) {
+            this.setupObserver();
         }
     }
+
+    // ───────── 批次渲染 ─────────
+
+    private renderNextBatch(): void {
+        if (!this.listContainer) return;
+        if (this.renderedGroupIndex >= this.dateGroups.length) return;
+
+        const batchLimit = this.renderedCount + TransactionList.BATCH_SIZE;
+
+        try {
+            while (this.renderedGroupIndex < this.dateGroups.length && this.renderedCount < batchLimit) {
+                const group = this.dateGroups[this.renderedGroupIndex]!;
+                this.renderDateGroup(this.listContainer, group.date, group.transactions);
+                this.renderedCount += group.transactions.length;
+                this.renderedGroupIndex++;
+            }
+        } catch (e) {
+            console.error("[Cost] Render error:", e);
+            this.listContainer.createDiv({ cls: "cost-error-message", text: `渲染错误: ${String(e)}` });
+        }
+
+        // 更新哨兵
+        this.updateSentinel();
+    }
+
+    // ───────── IntersectionObserver ─────────
+
+    private setupObserver(): void {
+        // 找到最近的可滚动祖先作为 root
+        const scrollRoot = this.findScrollParent(this.containerEl);
+
+        this.observer = new IntersectionObserver(
+            (entries) => {
+                for (const entry of entries) {
+                    if (entry.isIntersecting && this.renderedCount < this.transactions.length) {
+                        this.renderNextBatch();
+                    }
+                }
+            },
+            {
+                root: scrollRoot,
+                rootMargin: "0px 0px 300px 0px" // 提前 300px 触发加载
+            }
+        );
+
+        this.createSentinel();
+    }
+
+    private findScrollParent(el: HTMLElement): HTMLElement | null {
+        let parent = el.parentElement;
+        while (parent) {
+            const overflow = getComputedStyle(parent).overflowY;
+            if (overflow === "auto" || overflow === "scroll") {
+                return parent;
+            }
+            parent = parent.parentElement;
+        }
+        return null;
+    }
+
+    private createSentinel(): void {
+        if (!this.listContainer) return;
+
+        this.sentinel = this.listContainer.createDiv({ cls: "cost-virtual-sentinel" });
+        this.sentinel.style.height = "1px";
+        this.sentinel.style.width = "100%";
+
+        if (this.observer) {
+            this.observer.observe(this.sentinel);
+        }
+    }
+
+    private updateSentinel(): void {
+        // 如果所有数据都已渲染，移除哨兵并显示底部提示
+        if (this.renderedCount >= this.transactions.length) {
+            this.destroyObserver();
+            if (this.sentinel) {
+                this.sentinel.remove();
+                this.sentinel = null;
+            }
+            // 底部提示
+            if (this.listContainer && this.transactions.length > TransactionList.BATCH_SIZE) {
+                this.listContainer.createDiv({
+                    cls: "cost-list-end-hint",
+                    text: `共 ${this.transactions.length} 条交易`
+                });
+            }
+        } else {
+            // 确保哨兵在最后
+            if (this.sentinel && this.listContainer) {
+                this.listContainer.appendChild(this.sentinel);
+            }
+
+            // 显示加载进度
+            if (this.sentinel) {
+                const remaining = this.transactions.length - this.renderedCount;
+                this.sentinel.setAttribute("aria-label", `还有 ${remaining} 条`);
+            }
+        }
+    }
+
+    private destroyObserver(): void {
+        if (this.observer) {
+            this.observer.disconnect();
+            this.observer = null;
+        }
+    }
+
+    // ───────── 生命周期 ─────────
+
+    protected onUnmount(): void {
+        this.destroyObserver();
+    }
+
+    // ───────── 日期分组渲染 ─────────
 
     private renderDateGroup(container: HTMLElement, date: string, transactions: TransactionInfo[]): void {
         const group = container.createDiv({ cls: "cost-date-group" });
@@ -126,11 +266,10 @@ export class TransactionList extends BaseComponent {
         for (const txn of transactions) {
             const isRefundContext = this.options.activeAccount && txn.refundTo === this.options.activeAccount && txn.refund > 0;
             if (isRefundContext) {
-                // Treated as Income
                 dailyIncome += txn.refund || 0;
             } else {
                 if (txn.txnType === '收入') dailyIncome += txn.amount;
-                else if (txn.txnType === '支出') dailyExpense += (txn.amount - (txn.refund || 0));
+                else if (txn.txnType === '支出') dailyExpense += netAmount(txn.amount, txn.refund || 0);
             }
         }
 
@@ -151,17 +290,17 @@ export class TransactionList extends BaseComponent {
         }
     }
 
+    // ───────── 单条交易渲染 ─────────
+
     private renderTransactionItem(container: HTMLElement, txn: TransactionInfo): void {
         const isRefundContext = this.options.activeAccount && txn.refundTo === this.options.activeAccount && txn.refund > 0;
 
         const item = container.createDiv({ cls: `cost-transaction-item cost-txn-${isRefundContext ? "收入" : txn.txnType}` });
 
         // Category Icon
-        // Category Icon
         const iconEl = item.createDiv({ cls: "cost-txn-icon" });
         const iconName = this.getCategoryIcon(txn.category, txn.txnType);
 
-        // 1. Check for custom image first (if category is set)
         let hasCustomImage = false;
         if (txn.category) {
             const resolver = this.options.iconResolver;
@@ -180,7 +319,6 @@ export class TransactionList extends BaseComponent {
             try {
                 setIcon(iconEl, iconName);
             } catch (_e) {
-                // Fallback if icon not found or setIcon fails
                 iconEl.setText("💰");
             }
         }
@@ -233,13 +371,12 @@ export class TransactionList extends BaseComponent {
         const amountEl = amountCol.createDiv({ cls: "cost-txn-amount" });
 
         if (isRefundContext) {
-            // In context of refund target: Show as Income
             amountEl.setText(`+${txn.refund?.toFixed(2)}`);
             amountEl.addClass("cost-amount-收入");
         } else {
             const prefix = txn.txnType === "收入" ? "+" : (txn.txnType === "支出" ? "-" : "");
             if (txn.txnType === "支出" && txn.refund > 0) {
-                const net = txn.amount - txn.refund;
+                const net = netAmount(txn.amount, txn.refund);
                 amountEl.setText(`${prefix}${net.toFixed(2)}`);
                 amountCol.createDiv({ cls: "cost-txn-original-amount", text: `原 ${txn.amount.toFixed(2)}` });
             } else {
@@ -248,7 +385,7 @@ export class TransactionList extends BaseComponent {
             amountEl.addClass(`cost-amount-${txn.txnType}`);
         }
 
-        // Balance Changes Rendering (Moved here)
+        // Balance Changes Rendering
         if (this.runningBalances) {
             const changes = this.runningBalances.get(txn.path);
             if (changes && changes.size > 0) {
@@ -271,7 +408,6 @@ export class TransactionList extends BaseComponent {
             if (this.options.onTransactionClick) {
                 this.options.onTransactionClick(txn);
             } else {
-                // Default: Open file
                 const file = this.app.vault.getAbstractFileByPath(txn.path);
                 if (file instanceof TFile) {
                     void this.app.workspace.getLeaf().openFile(file);
@@ -280,10 +416,11 @@ export class TransactionList extends BaseComponent {
         });
     }
 
+    // ───────── 账户图标 & 气泡 ─────────
+
     private renderAccountIcon(container: HTMLElement, account: AccountInfo): void {
         const iconSpan = container.createSpan({ cls: "cost-txn-account-icon-small" });
 
-        // 使用 IconResolver 查找自定义图标
         const resolver = this.options.iconResolver;
         if (resolver) {
             const iconSrc = resolver.resolveAccountIcon(account);
@@ -293,7 +430,6 @@ export class TransactionList extends BaseComponent {
                 return;
             }
         } else if (account.icon) {
-            // Fallback: 无 resolver 时尝试简单解析 wiki link
             const match = account.icon.match(/\[\[(.+?)\]\]/);
             if (match && match[1]) {
                 const fileName = match[1];
@@ -309,7 +445,6 @@ export class TransactionList extends BaseComponent {
             }
         }
 
-        // Fallback: emoji by account kind
         const icons: Record<string, string> = {
             "bank": "🏦", "cash": "💵", "credit": "💳",
             "investment": "📈", "wallet": "👛", "prepaid": "🎫",
@@ -341,7 +476,7 @@ export class TransactionList extends BaseComponent {
             let inAmt = txn.amount;
 
             if (txn.txnType === "还款" && txn.discount) {
-                outAmt = txn.amount - txn.discount;
+                outAmt = netAmount(txn.amount, txn.discount);
             }
 
             bubble.createSpan({ text: ` (-${formatThousands(outAmt, 2)}) → ` });
@@ -354,8 +489,10 @@ export class TransactionList extends BaseComponent {
         }
     }
 
+    // ───────── 分类图标映射 ─────────
+
     private getCategoryIcon(category: string, txnType: string): string {
-        const cat = String(category || "").split("/")[0] || ""; // Ensure string
+        const cat = String(category || "").split("/")[0] || "";
         return TransactionList.CATEGORY_ICONS[cat] ||
             (txnType === "转账" ? "arrow-right-left" :
                 (txnType === "还款" ? "credit-card" :
@@ -389,7 +526,7 @@ export class TransactionList extends BaseComponent {
         "通讯": "smartphone",
         "网费": "wifi",
         "人情": "heart-handshake",
-        "红包": "red-envelope", // Not a standard lucide, use gift
+        "红包": "red-envelope",
         "礼物": "gift",
         "运动": "dumbbell",
         "健身": "dumbbell",
@@ -398,7 +535,6 @@ export class TransactionList extends BaseComponent {
         "数码": "monitor",
         "服饰": "shirt",
         "美容": "scissors",
-        // English fallback
         "Food": "utensils",
         "Transport": "bus",
         "Shopping": "shopping-bag",

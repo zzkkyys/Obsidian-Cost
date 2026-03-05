@@ -3,6 +3,7 @@ import CostPlugin from "../main";
 import { AccountInfo } from "../types";
 import { TransactionList } from "../components/lists/TransactionList";
 import { AccountList } from "../components/lists/AccountList";
+import { netAmount } from "../utils/format";
 import { BalanceCard } from "../components/dashboard/BalanceCard";
 import { TrendChart, TrendDataPoint } from "../components/charts/TrendChart";
 import { CalendarWidget } from "../components/dashboard/CalendarWidget";
@@ -354,7 +355,7 @@ export class CostMainView extends ItemView {
                     if (type === '收入' && txn.txnType === '收入') {
                         total += txn.amount;
                     } else if (type === '支出' && txn.txnType === '支出') {
-                        total += txn.amount - (txn.refund || 0);
+                        total += netAmount(txn.amount, txn.refund || 0);
                     }
                 }
             }

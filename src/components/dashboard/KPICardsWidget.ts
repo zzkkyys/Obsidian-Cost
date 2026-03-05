@@ -1,6 +1,6 @@
 import { BaseComponent } from '../BaseComponent';
 import { TransactionInfo } from '../../services/transactionService';
-import { formatCompact } from '../../utils/format';
+import { formatCompact, netAmount } from '../../utils/format';
 
 export class KPICardsWidget extends BaseComponent {
     private transactions: TransactionInfo[];
@@ -27,7 +27,7 @@ export class KPICardsWidget extends BaseComponent {
 
         for (const txn of this.transactions) {
             if (txn.txnType === '支出') {
-                const amount = txn.amount - (txn.refund || 0);
+                const amount = netAmount(txn.amount, txn.refund || 0);
                 if (txn.date.startsWith(thisMonth)) {
                     thisMonthExpense += amount;
                     if (amount > maxExpense) maxExpense = amount;

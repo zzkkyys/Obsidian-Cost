@@ -8,6 +8,7 @@ import { TopPayeesWidget } from "../components/dashboard/TopPayeesWidget";
 import { KPICardsWidget } from "../components/dashboard/KPICardsWidget";
 import { AnnualHeatmapWidget } from "../components/dashboard/AnnualHeatmapWidget";
 import { TransactionInfo } from "../services/transactionService";
+import { netAmount } from "../utils/format";
 
 export const COST_STATS_VIEW_TYPE = "cost-stats-view";
 
@@ -120,7 +121,7 @@ export class CostStatsView extends ItemView {
                     if (type === '收入' && txn.txnType === '收入') {
                         total += txn.amount;
                     } else if (type === '支出' && txn.txnType === '支出') {
-                        total += txn.amount - (txn.refund || 0);
+                        total += netAmount(txn.amount, txn.refund || 0);
                     }
                 }
             }

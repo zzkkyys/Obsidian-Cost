@@ -2,6 +2,7 @@ import { Menu } from "obsidian";
 import { BaseComponent } from '../BaseComponent';
 import { TransactionInfo } from '../../services/transactionService';
 import { PieChart } from '../charts/PieChart';
+import { netAmount } from '../../utils/format';
 
 export class CategoryStatsCard extends BaseComponent {
     private transactions: TransactionInfo[];
@@ -54,7 +55,7 @@ export class CategoryStatsCard extends BaseComponent {
             const category = txn.category?.split("/")[0] || "未分类";
             let amount = txn.amount;
             if (this.type === '支出') {
-                amount = txn.amount - (txn.refund || 0);
+                amount = netAmount(txn.amount, txn.refund || 0);
             }
             categoryMap.set(category, (categoryMap.get(category) || 0) + amount);
             totalAmount += amount;
