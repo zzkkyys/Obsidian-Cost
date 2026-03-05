@@ -1,5 +1,6 @@
-import { App, TFile, TFolder, CachedMetadata } from "obsidian";
+import { App, TFile, CachedMetadata } from "obsidian";
 import { AccountInfo, AccountFrontmatter } from "../types";
+import { getMarkdownFilesInFolder } from "../utils/fileUtils";
 
 /**
  * 账户服务 - 负责扫描和管理所有账户文件
@@ -26,7 +27,7 @@ export class AccountService {
      */
     async scanAccounts(): Promise<AccountInfo[]> {
         const accounts: AccountInfo[] = [];
-        const files = this.getFilesInFolder(this.accountsPath);
+        const files = getMarkdownFilesInFolder(this.app, this.accountsPath);
 
         for (const file of files) {
             const account = await this.parseAccountFile(file);
@@ -39,32 +40,6 @@ export class AccountService {
         return accounts;
     }
 
-    /**
-     * 获取指定文件夹下的所有 Markdown 文件（递归）
-     */
-    private getFilesInFolder(folderPath: string): TFile[] {
-        const folder = this.app.vault.getAbstractFileByPath(folderPath);
-        if (!folder || !(folder instanceof TFolder)) {
-            return [];
-        }
-
-        const files: TFile[] = [];
-        this.collectMarkdownFiles(folder, files);
-        return files;
-    }
-
-    /**
-     * 递归收集 Markdown 文件
-     */
-    private collectMarkdownFiles(folder: TFolder, files: TFile[]): void {
-        for (const child of folder.children) {
-            if (child instanceof TFile && child.extension === "md") {
-                files.push(child);
-            } else if (child instanceof TFolder) {
-                this.collectMarkdownFiles(child, files);
-            }
-        }
-    }
 
     /**
      * 解析单个文件，判断是否为账户文件

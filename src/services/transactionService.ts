@@ -1,5 +1,6 @@
-import { App, TFile, TFolder, CachedMetadata, normalizePath } from "obsidian";
+import { App, TFile, CachedMetadata, normalizePath } from "obsidian";
 import { TransactionFrontmatter } from "../types";
+import { getMarkdownFilesInFolder } from "../utils/fileUtils";
 
 /**
  * 交易信息
@@ -72,7 +73,7 @@ export class TransactionService {
      */
     async scanTransactions(): Promise<TransactionInfo[]> {
         const transactions: TransactionInfo[] = [];
-        const files = this.getFilesInFolder(this.transactionsPath);
+        const files = getMarkdownFilesInFolder(this.app, this.transactionsPath);
 
         for (const file of files) {
             const txn = this.parseTransactionFile(file);
@@ -92,32 +93,6 @@ export class TransactionService {
         return transactions;
     }
 
-    /**
-     * 获取指定文件夹下的所有 Markdown 文件（递归）
-     */
-    private getFilesInFolder(folderPath: string): TFile[] {
-        const folder = this.app.vault.getAbstractFileByPath(folderPath);
-        if (!folder || !(folder instanceof TFolder)) {
-            return [];
-        }
-
-        const files: TFile[] = [];
-        this.collectMarkdownFiles(folder, files);
-        return files;
-    }
-
-    /**
-     * 递归收集 Markdown 文件
-     */
-    private collectMarkdownFiles(folder: TFolder, files: TFile[]): void {
-        for (const child of folder.children) {
-            if (child instanceof TFile && child.extension === "md") {
-                files.push(child);
-            } else if (child instanceof TFolder) {
-                this.collectMarkdownFiles(child, files);
-            }
-        }
-    }
 
     /**
      * 解析单个文件，判断是否为交易文件
