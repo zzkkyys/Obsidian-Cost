@@ -18,6 +18,7 @@ import { AnnualHeatmapWidget } from "../components/dashboard/AnnualHeatmapWidget
 import { TransactionEditModal } from "../modals/TransactionEditModal";
 import { TransactionTable } from "../components/lists/TransactionTable";
 import { BatchEditModal } from "../modals/BatchEditModal";
+import { DraggableGrid } from "../components/dashboard/DraggableGrid";
 
 type TabType = "transactions" | "accounts" | "stats" | "management";
 
@@ -37,6 +38,7 @@ export class CostMainView extends ItemView {
 
     private tabContentMap: Map<TabType, HTMLElement> = new Map();
     private unsubscribeEvents: (() => void)[] = [];
+    private draggableGrid: DraggableGrid | null = null;
 
     constructor(leaf: WorkspaceLeaf, plugin: CostPlugin) {
         super(leaf);
@@ -70,6 +72,8 @@ export class CostMainView extends ItemView {
     async onClose(): Promise<void> {
         this.unsubscribeEvents.forEach(fn => fn());
         this.unsubscribeEvents = [];
+        this.draggableGrid?.destroy();
+        this.draggableGrid = null;
         this.contentEl.empty();
         this.tabContentMap.clear();
     }
@@ -285,57 +289,121 @@ export class CostMainView extends ItemView {
         const transactions = this.plugin.transactionService.getTransactions();
         const accounts = this.plugin.accountService.getAccounts();
 
-        // 1. Balance Section
-        const balanceSection = container.createDiv({ cls: 'cost-stats-section' });
-        new BalanceCard(balanceSection, accounts, this.plugin.transactionService).mount();
+        // ── Header with reset button ──
+        const header = container.createDiv({ cls: "cost-stats-header" });
+        header.createEl("h3", { text: "统计", cls: "cost-stats-header-title" });
 
-        // 2. KPI Cards
-        const kpiSection = container.createDiv({ cls: 'cost-stats-section' });
-        new KPICardsWidget(kpiSection, transactions).mount();
+        const actions = header.createDiv({ cls: "cost-stats-header-actions" });
+        const resetBtn = actions.createEl("button", {
+            cls: "cost-stats-reset-btn",
+            attr: { "aria-label": "重置布局" }
+        });
+        setIcon(resetBtn, "rotate-ccw");
+        resetBtn.createSpan({ text: "重置布局" });
+        resetBtn.addEventListener("click", async () => {
+            this.plugin.settings.statsLayout = ["balance", "kpi", "trends", "analysis", "heatmap", "calendar"];
+            await this.plugin.saveData(this.plugin.settings);
+            this.update();
+        });
 
-        // 3. Trends Section
-        const trendsSection = container.createDiv({ cls: 'cost-stats-grid-row' });
+        // ── Widget container with DraggableGrid ──
+        const widgetContainer = container.createDiv({ cls: "cost-stats-widget-container" });
 
-        const incomeContainer = trendsSection.createDiv({ cls: 'cost-stats-card' });
-        incomeContainer.createEl('h3', { text: '收入趋势', cls: 'cost-card-title' });
-        const incomeData = this.calculateTrendData(transactions, '收入');
-        new TrendChart(incomeContainer, incomeData, 'var(--color-green)').mount();
+        this.draggableGrid?.destroy();
+        this.draggableGrid = new DraggableGrid(
+            widgetContainer,
+            async (newOrder) => {
+                this.plugin.settings.statsLayout = newOrder;
+                await this.plugin.saveData(this.plugin.settings);
+            }
+        );
 
-        const expenseContainer = trendsSection.createDiv({ cls: 'cost-stats-card' });
-        expenseContainer.createEl('h3', { text: '支出趋势', cls: 'cost-card-title' });
-        const expenseData = this.calculateTrendData(transactions, '支出');
-        new TrendChart(expenseContainer, expenseData, 'var(--color-red)').mount();
+        const widgetBuilders: Record<string, () => HTMLElement> = {
+            balance: () => {
+                const el = document.createElement("div");
+                el.className = "cost-stats-section";
+                new BalanceCard(el, accounts, this.plugin.transactionService).mount();
+                return el;
+            },
+            kpi: () => {
+                const el = document.createElement("div");
+                el.className = "cost-stats-section";
+                new KPICardsWidget(el, transactions).mount();
+                return el;
+            },
+            trends: () => {
+                const el = document.createElement("div");
+                el.className = "cost-stats-grid-row";
 
-        // 4. Analysis Section (Rankings + Category)
-        const analysisSection = container.createDiv({ cls: 'cost-stats-grid-row' });
+                const incomeCard = el.createDiv({ cls: "cost-stats-card" });
+                incomeCard.createEl("h3", { text: "收入趋势", cls: "cost-card-title" });
+                const incomeData = this.calculateTrendData(transactions, "收入");
+                new TrendChart(incomeCard, incomeData, "var(--color-green)").mount();
 
-        // Row 1: Expense
-        const expenseRankContainer = analysisSection.createDiv({ cls: 'cost-stats-card' });
-        new TopPayeesWidget(expenseRankContainer, transactions, '支出').mount();
+                const expenseCard = el.createDiv({ cls: "cost-stats-card" });
+                expenseCard.createEl("h3", { text: "支出趋势", cls: "cost-card-title" });
+                const expenseData = this.calculateTrendData(transactions, "支出");
+                new TrendChart(expenseCard, expenseData, "var(--color-red)").mount();
+                return el;
+            },
+            analysis: () => {
+                const wrapper = document.createElement("div");
+                wrapper.className = "cost-stats-analysis-wrapper";
 
-        const expenseCatContainer = analysisSection.createDiv({ cls: 'cost-stats-card' });
-        new CategoryStatsCard(expenseCatContainer, transactions, '支出').mount();
+                // Row 1: Expense
+                const expenseRow = wrapper.createDiv({ cls: "cost-stats-grid-row" });
+                const expenseRank = expenseRow.createDiv({ cls: "cost-stats-card" });
+                new TopPayeesWidget(expenseRank, transactions, "支出").mount();
+                const expenseCat = expenseRow.createDiv({ cls: "cost-stats-card" });
+                new CategoryStatsCard(expenseCat, transactions, "支出").mount();
 
-        // Row 2: Income
-        // Create new row for Income
-        const incomeAnalysisSection = container.createDiv({ cls: 'cost-stats-grid-row' });
+                // Row 2: Income
+                const incomeRow = wrapper.createDiv({ cls: "cost-stats-grid-row" });
+                const incomeRank = incomeRow.createDiv({ cls: "cost-stats-card" });
+                new TopPayeesWidget(incomeRank, transactions, "收入").mount();
+                const incomeCat = incomeRow.createDiv({ cls: "cost-stats-card" });
+                new CategoryStatsCard(incomeCat, transactions, "收入").mount();
 
-        const incomeRankContainer = incomeAnalysisSection.createDiv({ cls: 'cost-stats-card' });
-        new TopPayeesWidget(incomeRankContainer, transactions, '收入').mount();
+                return wrapper;
+            },
+            heatmap: () => {
+                const el = document.createElement("div");
+                el.className = "cost-stats-section";
+                const card = el.createDiv({ cls: "cost-stats-card" });
+                new AnnualHeatmapWidget(card, transactions).mount();
+                return el;
+            },
+            calendar: () => {
+                const el = document.createElement("div");
+                el.className = "cost-stats-section";
+                const card = el.createDiv({ cls: "cost-stats-card" });
+                new CalendarWidget(card, transactions).mount();
+                return el;
+            },
+        };
 
-        const incomeCatContainer = incomeAnalysisSection.createDiv({ cls: 'cost-stats-card' });
-        new CategoryStatsCard(incomeCatContainer, transactions, '收入').mount();
+        const WIDGET_DEFS = [
+            { id: "balance", label: "余额总览", sizeType: "full" as const },
+            { id: "kpi", label: "KPI 指标", sizeType: "full" as const },
+            { id: "trends", label: "收支趋势", sizeType: "full" as const },
+            { id: "analysis", label: "分析排行", sizeType: "full" as const },
+            { id: "heatmap", label: "年度热力图", sizeType: "full" as const },
+            { id: "calendar", label: "日历", sizeType: "full" as const },
+        ];
 
-        // 5. Heatmap Section
-        const heatmapSection = container.createDiv({ cls: 'cost-stats-section' });
-        const heatmapContainer = heatmapSection.createDiv({ cls: 'cost-stats-card' });
-        new AnnualHeatmapWidget(heatmapContainer, transactions).mount();
+        for (const def of WIDGET_DEFS) {
+            const builder = widgetBuilders[def.id];
+            if (builder) {
+                this.draggableGrid.addWidget(def, builder());
+            }
+        }
 
-        // 6. Bottom Section
-        const bottomSection = container.createDiv({ cls: 'cost-stats-grid-row' });
-
-        const calendarContainer = bottomSection.createDiv({ cls: 'cost-stats-card' });
-        new CalendarWidget(calendarContainer, transactions).mount();
+        // Use saved layout
+        const saved = this.plugin.settings.statsLayout;
+        const layout = (saved && saved.length > 0)
+            ? saved
+            : WIDGET_DEFS.map(d => d.id);
+        this.draggableGrid.renderOrder(layout);
     }
 
 

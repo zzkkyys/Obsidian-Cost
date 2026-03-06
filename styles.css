@@ -1987,6 +1987,136 @@ Obsidian Cost Plugin Styles
    可拖拽 Widget 系统
    ======================================== */
 
+/* ── 统计页面 Header ── */
+.cost-stats-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 0 12px 0;
+}
+
+.cost-stats-header-title {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 700;
+	color: var(--text-normal);
+}
+
+.cost-stats-header-actions {
+	display: flex;
+	gap: 6px;
+}
+
+.cost-stats-reset-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	color: var(--text-muted);
+	border-radius: 6px;
+	padding: 4px 10px;
+	font-size: 12px;
+	cursor: pointer;
+	transition: all 0.2s;
+}
+
+.cost-stats-reset-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+	border-color: var(--interactive-accent);
+}
+
+.cost-stats-reset-btn .svg-icon {
+	width: 14px;
+	height: 14px;
+}
+
+/* ── Widget 容器 ── */
+.cost-stats-widget-container {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	width: 100%;
+}
+
+/* ── 可拖拽 widget 包装 ── */
+.cost-drag-widget {
+	position: relative;
+	transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+/* ── 拖拽手柄 ── */
+.cost-drag-handle {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 8px;
+	margin-bottom: 4px;
+	border-radius: 6px;
+	cursor: grab;
+	user-select: none;
+	opacity: 0;
+	transition: opacity 0.2s ease, background 0.2s ease;
+}
+
+.cost-drag-widget:hover .cost-drag-handle {
+	opacity: 1;
+}
+
+.cost-drag-handle:hover {
+	background: var(--background-modifier-hover);
+}
+
+.cost-drag-handle:active {
+	cursor: grabbing;
+	background: var(--background-modifier-active-hover, var(--background-modifier-hover));
+}
+
+.cost-drag-handle-icon {
+	font-size: 14px;
+	color: var(--text-faint);
+	letter-spacing: 1px;
+	line-height: 1;
+}
+
+.cost-drag-handle-label {
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--text-faint);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+/* ── 拖拽中的源元素（隐藏） ── */
+.cost-drag-source {
+	opacity: 0.15 !important;
+	pointer-events: none;
+}
+
+/* ── 浮动 Ghost 元素 ── */
+.cost-drag-ghost {
+	position: fixed;
+	z-index: 10000;
+	pointer-events: none;
+	opacity: 0.85;
+	transform: scale(1.02);
+	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.1);
+	border-radius: 10px;
+	overflow: hidden;
+	transition: transform 0.05s ease;
+}
+
+/* ── 占位符（显示放置位置） ── */
+.cost-drag-placeholder {
+	border: 2px dashed var(--interactive-accent);
+	border-radius: 10px;
+	background: var(--interactive-accent);
+	opacity: 0.08;
+	transition: height 0.2s ease;
+	min-height: 40px;
+}
+
 /* ========================================
    统计视图网格布局 (静态)
    ======================================== */
@@ -2000,6 +2130,13 @@ Obsidian Cost Plugin Styles
 }
 
 .cost-stats-section {
+	width: 100%;
+}
+
+.cost-stats-analysis-wrapper {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
 	width: 100%;
 }
 

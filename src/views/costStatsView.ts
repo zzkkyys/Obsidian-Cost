@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf } from "obsidian";
+import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
 import CostPlugin from "../main";
 import { BalanceCard } from "../components/dashboard/BalanceCard";
 import { TrendChart, TrendDataPoint } from "../components/charts/TrendChart";
@@ -9,12 +9,26 @@ import { KPICardsWidget } from "../components/dashboard/KPICardsWidget";
 import { AnnualHeatmapWidget } from "../components/dashboard/AnnualHeatmapWidget";
 import { TransactionInfo } from "../services/transactionService";
 import { netAmount } from "../utils/format";
+import { DraggableGrid, WidgetDef } from "../components/dashboard/DraggableGrid";
 
 export const COST_STATS_VIEW_TYPE = "cost-stats-view";
+
+/** 所有可用 widget 的定义 */
+const WIDGET_DEFS: WidgetDef[] = [
+    { id: "balance", label: "余额总览", sizeType: "full" },
+    { id: "kpi", label: "KPI 指标", sizeType: "full" },
+    { id: "trends", label: "收支趋势", sizeType: "full" },
+    { id: "analysis", label: "分析排行", sizeType: "full" },
+    { id: "heatmap", label: "年度热力图", sizeType: "full" },
+    { id: "calendar", label: "日历", sizeType: "full" },
+];
+
+const DEFAULT_LAYOUT = WIDGET_DEFS.map(d => d.id);
 
 export class CostStatsView extends ItemView {
     private plugin: CostPlugin;
     private unsubscribeEvents: (() => void)[] = [];
+    private draggableGrid: DraggableGrid | null = null;
 
     constructor(leaf: WorkspaceLeaf, plugin: CostPlugin) {
         super(leaf);
@@ -47,6 +61,8 @@ export class CostStatsView extends ItemView {
     async onClose(): Promise<void> {
         this.unsubscribeEvents.forEach(fn => fn());
         this.unsubscribeEvents = [];
+        this.draggableGrid?.destroy();
+        this.draggableGrid = null;
         this.contentEl.empty();
     }
 
@@ -54,57 +70,118 @@ export class CostStatsView extends ItemView {
         this.render();
     }
 
+    // ─────────────────── Layout persistence ───────────────────
+
+    private getLayout(): string[] {
+        const saved = this.plugin.settings.statsLayout;
+        if (saved && saved.length > 0) return saved;
+        return DEFAULT_LAYOUT;
+    }
+
+    private async saveLayout(order: string[]): Promise<void> {
+        this.plugin.settings.statsLayout = order;
+        await this.plugin.saveData(this.plugin.settings);
+    }
+
+    private async resetLayout(): Promise<void> {
+        this.plugin.settings.statsLayout = [...DEFAULT_LAYOUT];
+        await this.plugin.saveData(this.plugin.settings);
+        this.render();
+    }
+
+    // ─────────────────── Rendering ───────────────────
+
     private render(): void {
         this.contentEl.empty();
+        this.draggableGrid?.destroy();
+
         const transactions = this.plugin.transactionService.getTransactions();
         const accounts = this.plugin.accountService.getAccounts();
 
-        // 1. Balance Section
-        const balanceSection = this.contentEl.createDiv({ cls: 'cost-stats-section' });
-        new BalanceCard(balanceSection, accounts, this.plugin.transactionService).mount();
+        // ── Header bar ──
+        const header = this.contentEl.createDiv({ cls: "cost-stats-header" });
+        header.createEl("h3", { text: "统计面板", cls: "cost-stats-header-title" });
 
-        // 2. KPI Cards
-        const kpiSection = this.contentEl.createDiv({ cls: 'cost-stats-section' });
-        new KPICardsWidget(kpiSection, transactions).mount();
+        const actions = header.createDiv({ cls: "cost-stats-header-actions" });
+        const resetBtn = actions.createEl("button", {
+            cls: "cost-stats-reset-btn",
+            attr: { "aria-label": "重置布局" }
+        });
+        setIcon(resetBtn, "rotate-ccw");
+        resetBtn.createSpan({ text: "重置布局" });
+        resetBtn.addEventListener("click", () => this.resetLayout());
 
-        // 3. Trends Section
-        const trendsSection = this.contentEl.createDiv({ cls: 'cost-stats-grid-row' });
+        // ── Widget container ──
+        const widgetContainer = this.contentEl.createDiv({ cls: "cost-stats-widget-container" });
 
-        // Income Trend
-        const incomeContainer = trendsSection.createDiv({ cls: 'cost-stats-card' });
-        incomeContainer.createEl('h3', { text: '收入趋势', cls: 'cost-card-title' });
-        const incomeData = this.calculateTrendData(transactions, '收入');
-        new TrendChart(incomeContainer, incomeData, 'var(--color-green)').mount();
+        // ── DraggableGrid ──
+        this.draggableGrid = new DraggableGrid(
+            widgetContainer,
+            (newOrder) => this.saveLayout(newOrder)
+        );
 
-        // Expense Trend
-        const expenseContainer = trendsSection.createDiv({ cls: 'cost-stats-card' });
-        expenseContainer.createEl('h3', { text: '支出趋势', cls: 'cost-card-title' });
-        const expenseData = this.calculateTrendData(transactions, '支出');
-        new TrendChart(expenseContainer, expenseData, 'var(--color-red)').mount();
+        // ── Build each widget ──
+        const widgetBuilders: Record<string, () => HTMLElement> = {
+            balance: () => {
+                const el = createDiv("cost-stats-section");
+                new BalanceCard(el, accounts, this.plugin.transactionService).mount();
+                return el;
+            },
+            kpi: () => {
+                const el = createDiv("cost-stats-section");
+                new KPICardsWidget(el, transactions).mount();
+                return el;
+            },
+            trends: () => {
+                const el = createDiv("cost-stats-grid-row");
+                // Income Trend
+                const incomeCard = el.createDiv({ cls: "cost-stats-card" });
+                incomeCard.createEl("h3", { text: "收入趋势", cls: "cost-card-title" });
+                const incomeData = this.calculateTrendData(transactions, "收入");
+                new TrendChart(incomeCard, incomeData, "var(--color-green)").mount();
+                // Expense Trend
+                const expenseCard = el.createDiv({ cls: "cost-stats-card" });
+                expenseCard.createEl("h3", { text: "支出趋势", cls: "cost-card-title" });
+                const expenseData = this.calculateTrendData(transactions, "支出");
+                new TrendChart(expenseCard, expenseData, "var(--color-red)").mount();
+                return el;
+            },
+            analysis: () => {
+                const el = createDiv("cost-stats-grid-row");
+                const payeesCard = el.createDiv({ cls: "cost-stats-card" });
+                new TopPayeesWidget(payeesCard, transactions).mount();
+                const categoryCard = el.createDiv({ cls: "cost-stats-card" });
+                new CategoryStatsCard(categoryCard, transactions).mount();
+                return el;
+            },
+            heatmap: () => {
+                const el = createDiv("cost-stats-section");
+                const card = el.createDiv({ cls: "cost-stats-card" });
+                new AnnualHeatmapWidget(card, transactions).mount();
+                return el;
+            },
+            calendar: () => {
+                const el = createDiv("cost-stats-section");
+                const card = el.createDiv({ cls: "cost-stats-card" });
+                new CalendarWidget(card, transactions).mount();
+                return el;
+            },
+        };
 
-        // 4. Analysis Section (Top Payees + Category Stats)
-        const analysisSection = this.contentEl.createDiv({ cls: 'cost-stats-grid-row' });
+        // Register all widgets
+        for (const def of WIDGET_DEFS) {
+            const builder = widgetBuilders[def.id];
+            if (builder) {
+                const contentEl = builder();
+                this.draggableGrid.addWidget(def, contentEl);
+            }
+        }
 
-        const topPayeesContainer = analysisSection.createDiv({ cls: 'cost-stats-card' });
-        new TopPayeesWidget(topPayeesContainer, transactions).mount();
-
-        // Use existing feature-rich CategoryStatsCard here instead of simple Donut
-        const categoryContainer = analysisSection.createDiv({ cls: 'cost-stats-card' });
-        new CategoryStatsCard(categoryContainer, transactions).mount();
-
-        // 5. Heatmap Section
-        const heatmapSection = this.contentEl.createDiv({ cls: 'cost-stats-section' });
-        const heatmapContainer = heatmapSection.createDiv({ cls: 'cost-stats-card' });
-        new AnnualHeatmapWidget(heatmapContainer, transactions).mount();
-
-        // 6. Bottom Section (Calendar)
-        const bottomSection = this.contentEl.createDiv({ cls: 'cost-stats-grid-row' });
-
-        const calendarContainer = bottomSection.createDiv({ cls: 'cost-stats-card' });
-        new CalendarWidget(calendarContainer, transactions).mount();
+        // Render in saved order
+        this.draggableGrid.renderOrder(this.getLayout());
     }
 
-    private calculateTrendData(transactions: TransactionInfo[], type: '收入' | '支出'): TrendDataPoint[] {
+    private calculateTrendData(transactions: TransactionInfo[], type: "收入" | "支出"): TrendDataPoint[] {
         const now = new Date();
         const data: TrendDataPoint[] = [];
 
@@ -113,14 +190,14 @@ export class CostStatsView extends ItemView {
             const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
             const year = d.getFullYear();
             const month = d.getMonth();
-            const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
+            const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
 
             let total = 0;
             for (const txn of transactions) {
                 if (txn.date?.startsWith(monthStr)) {
-                    if (type === '收入' && txn.txnType === '收入') {
+                    if (type === "收入" && txn.txnType === "收入") {
                         total += txn.amount;
-                    } else if (type === '支出' && txn.txnType === '支出') {
+                    } else if (type === "支出" && txn.txnType === "支出") {
                         total += netAmount(txn.amount, txn.refund || 0);
                     }
                 }
@@ -133,3 +210,11 @@ export class CostStatsView extends ItemView {
         return data;
     }
 }
+
+/** Helper to create a div with optional class */
+function createDiv(cls?: string): HTMLDivElement {
+    const div = document.createElement("div");
+    if (cls) div.className = cls;
+    return div;
+}
+

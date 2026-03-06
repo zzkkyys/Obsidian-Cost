@@ -28,6 +28,8 @@ export interface CostPluginSettings {
 	knownPayees: string[];
 	/** AI Skill 用：已知标签/人物 */
 	knownPersons: string[];
+	/** 统计页面 Widget 排列顺序 */
+	statsLayout: string[];
 }
 
 export const DEFAULT_SETTINGS: CostPluginSettings = {
@@ -41,6 +43,7 @@ export const DEFAULT_SETTINGS: CostPluginSettings = {
 	knownCategories: {},
 	knownPayees: [],
 	knownPersons: [],
+	statsLayout: ["balance", "kpi", "trends", "analysis", "heatmap", "calendar"],
 };
 
 export class CostSettingTab extends PluginSettingTab {
