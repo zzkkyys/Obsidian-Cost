@@ -61,7 +61,7 @@ export class CostStatsView extends ItemView {
 
         // 1. Balance Section
         const balanceSection = this.contentEl.createDiv({ cls: 'cost-stats-section' });
-        new BalanceCard(balanceSection, accounts, transactions).mount();
+        new BalanceCard(balanceSection, accounts, this.plugin.transactionService).mount();
 
         // 2. KPI Cards
         const kpiSection = this.contentEl.createDiv({ cls: 'cost-stats-section' });
