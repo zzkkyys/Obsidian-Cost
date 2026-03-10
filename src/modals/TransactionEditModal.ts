@@ -11,7 +11,7 @@ export class TransactionEditModal extends Modal {
     private service: TransactionService;
     private accountService: AccountService;
     private file: TFile;
-    private onSave?: () => void;
+    private onSave?: (savedPath?: string) => void;
     private customIconPath: string;
     private isNewTransaction: boolean;
     private isSaved: boolean = false;
@@ -24,7 +24,7 @@ export class TransactionEditModal extends Modal {
         accountService: AccountService,
         customIconPath: string,
         plugin: CostPlugin,
-        onSave?: () => void,
+        onSave?: (savedPath?: string) => void,
         isNew: boolean = false
     ) {
         super(app);
@@ -356,6 +356,7 @@ export class TransactionEditModal extends Modal {
             wrapper.style.position = "fixed";
             wrapper.style.top = `${rect.bottom + 4}px`;
             wrapper.style.left = `${rect.left}px`;
+            wrapper.style.right = "auto";
             wrapper.style.width = `250px`;
             wrapper.style.zIndex = "99999";
 
@@ -519,6 +520,7 @@ export class TransactionEditModal extends Modal {
             wrapper.style.position = "fixed";
             wrapper.style.top = `${rect.bottom + 4}px`;
             wrapper.style.left = `${rect.left}px`;
+            wrapper.style.right = "auto";
             wrapper.style.width = `180px`;
             wrapper.style.zIndex = "99999";
 
@@ -575,6 +577,7 @@ export class TransactionEditModal extends Modal {
             wrapper.style.position = "fixed";
             wrapper.style.top = `${rect.bottom + 4}px`;
             wrapper.style.left = `${rect.left}px`;
+            wrapper.style.right = "auto";
             wrapper.style.width = `250px`;
             wrapper.style.zIndex = "99999";
 
@@ -983,6 +986,7 @@ export class TransactionEditModal extends Modal {
                 .filter((s) => s.length > 0);
 
             let savedCount = 0;
+            let finalPath = "";
             const baseTimeStr = this.normalizeTime(timeInput.value || time);
             const [bH, bM, bS] = baseTimeStr.split(":").map(Number);
             const baseDateObj = new Date(dateInput.value || date);
@@ -1028,20 +1032,24 @@ export class TransactionEditModal extends Modal {
                     await this.service.updateTransaction(this.file, txnData);
                     const newDateStr = dateInput.value || date;
                     this.file = await this.service.moveTransactionToDateFolder(this.file, newDateStr);
+                    finalPath = this.file.path;
                 } else {
                     const newFile = await this.service.createTransaction();
                     await this.service.updateTransaction(newFile, txnData);
                     const newDateStr = dateInput.value || date;
-                    await this.service.moveTransactionToDateFolder(newFile, newDateStr);
+                    const movedFile = await this.service.moveTransactionToDateFolder(newFile, newDateStr);
+                    if (i === 0) finalPath = movedFile.path;
                 }
                 savedCount++;
             }
 
             this.isSaved = true;
-            this.onSave?.();
+            this.onSave?.(finalPath);
             this.close();
             if (savedCount > 1) {
                 new Notice(`成功保存 ${savedCount} 条交易`);
+            } else {
+                new Notice(`已保存交易 -> ${payee || '未知对象'}`);
             }
         };
 

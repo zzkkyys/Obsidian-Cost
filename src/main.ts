@@ -19,6 +19,7 @@ export default class CostPlugin extends Plugin {
 	transactionService: TransactionService;
 	iconResolver: IconResolver;
 	eventBus: EventBus;
+	targetHighlightPath: string | null = null;
 
 	async onload() {
 		await this.loadSettings();
@@ -203,9 +204,11 @@ export default class CostPlugin extends Plugin {
 				customIconPath: this.settings.customIconPath,
 				iconResolver: this.iconResolver,
 				onTransactionClick: (txn) => {
-					new TransactionEditModal(this.app, txn, this.transactionService, this.accountService, this.settings.customIconPath, this, async () => {
+					new TransactionEditModal(this.app, txn, this.transactionService, this.accountService, this.settings.customIconPath, this, async (savedPath) => {
 						await this.transactionService.scanTransactions();
+						if (savedPath) this.targetHighlightPath = savedPath;
 						this.refreshViews();
+						if (savedPath) setTimeout(() => { this.targetHighlightPath = null; }, 500);
 					}).open();
 				}
 			}).mount();
@@ -282,9 +285,11 @@ export default class CostPlugin extends Plugin {
 					persons: []
 				};
 
-				new TransactionEditModal(this.app, txn, this.transactionService, this.accountService, this.settings.customIconPath, this, async () => {
+				new TransactionEditModal(this.app, txn, this.transactionService, this.accountService, this.settings.customIconPath, this, async (savedPath) => {
 					await this.transactionService.scanTransactions();
+					if (savedPath) this.targetHighlightPath = savedPath;
 					this.refreshViews();
+					if (savedPath) setTimeout(() => { this.targetHighlightPath = null; }, 500);
 				}, true).open();
 			},
 		});

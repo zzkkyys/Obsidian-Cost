@@ -30,6 +30,12 @@ export interface CostPluginSettings {
 	knownPersons: string[];
 	/** 统计页面 Widget 排列顺序 */
 	statsLayout: string[];
+	/** 是否在保存后高亮该交易 */
+	enableHighlightAfterSave: boolean;
+	/** 保存后高亮的持续时间(秒) */
+	highlightDurationSeconds: number;
+	/** 高亮动画的颜色(可以写 hex，rgba 或 css变量) */
+	highlightColor: string;
 }
 
 export const DEFAULT_SETTINGS: CostPluginSettings = {
@@ -44,6 +50,9 @@ export const DEFAULT_SETTINGS: CostPluginSettings = {
 	knownPayees: [],
 	knownPersons: [],
 	statsLayout: ["balance", "kpi", "trends", "analysis", "heatmap", "calendar"],
+	enableHighlightAfterSave: true,
+	highlightDurationSeconds: 10,
+	highlightColor: "#4caf50",
 };
 
 export class CostSettingTab extends PluginSettingTab {
@@ -109,6 +118,44 @@ export class CostSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.customIconPath)
 					.onChange(async (value) => {
 						this.plugin.settings.customIconPath = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("保存交易后高亮")
+			.setDesc("开启后，在编辑保存交易时会自动滚动并在行上展现高亮动画。")
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.enableHighlightAfterSave)
+					.onChange(async (value) => {
+						this.plugin.settings.enableHighlightAfterSave = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("高亮持续时间 (秒)")
+			.setDesc("控制高亮动画淡出的时间。")
+			.addSlider(slider =>
+				slider
+					.setLimits(1, 60, 1)
+					.setValue(this.plugin.settings.highlightDurationSeconds)
+					.setDynamicTooltip()
+					.onChange(async (value) => {
+						this.plugin.settings.highlightDurationSeconds = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("高亮颜色")
+			.setDesc("在色盘中选择保存交易后闪烁的高亮颜色。")
+			.addColorPicker(color =>
+				color
+					.setValue(this.plugin.settings.highlightColor.startsWith("var") ? "#4caf50" : this.plugin.settings.highlightColor)
+					.onChange(async (value) => {
+						this.plugin.settings.highlightColor = value;
 						await this.plugin.saveSettings();
 					})
 			);

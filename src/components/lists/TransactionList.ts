@@ -13,6 +13,10 @@ export interface TransactionListOptions {
     customIconPath?: string;
     iconResolver?: IconResolver;
     activeAccount?: string | null;
+    highlightPath?: string | null;
+    enableHighlightAfterSave?: boolean;
+    highlightDurationSeconds?: number;
+    highlightColor?: string;
 }
 
 /**
@@ -129,12 +133,41 @@ export class TransactionList extends BaseComponent {
         // 构建日期分组
         this.buildDateGroups();
 
-        // 渲染第一批
+        // 渲染所需批次
+        let targetIndex = -1;
+        if (this.options.highlightPath) {
+            targetIndex = this.transactions.findIndex(t => t.path === this.options.highlightPath);
+        }
+
+        // 渲染第一批 (或直到包含高亮项目)
         this.renderNextBatch();
+        if (targetIndex >= 0) {
+            while (this.renderedCount <= targetIndex && this.renderedGroupIndex < this.dateGroups.length) {
+                this.renderNextBatch();
+            }
+        }
 
         // 如果还有更多数据，设置 IntersectionObserver
         if (this.renderedCount < this.transactions.length) {
             this.setupObserver();
+        }
+
+        // 自动滚动到高亮项
+        if (this.options.highlightPath && targetIndex >= 0) {
+            setTimeout(() => {
+                if (this.listContainer) {
+                    try {
+                        // 使用 CSS escape 避免路径中的特殊字符导致 querySelector 报错
+                        const escapedPath = CSS.escape(this.options.highlightPath!);
+                        const el = this.listContainer.querySelector(`[data-path="${escapedPath}"]`);
+                        if (el) {
+                            el.scrollIntoView({ behavior: "smooth", block: "center" });
+                        }
+                    } catch (e) {
+                        console.error("[Cost] Failed to scroll to highlight path", e);
+                    }
+                }
+            }, 50);
         }
     }
 
@@ -296,6 +329,18 @@ export class TransactionList extends BaseComponent {
         const isRefundContext = this.options.activeAccount && txn.refundTo === this.options.activeAccount && txn.refund > 0;
 
         const item = container.createDiv({ cls: `cost-transaction-item cost-txn-${isRefundContext ? "收入" : txn.txnType}` });
+        item.setAttribute("data-path", txn.path);
+
+        if (this.options.highlightPath === txn.path && this.options.enableHighlightAfterSave !== false) {
+            item.addClass("cost-txn-highlight");
+            const duration = this.options.highlightDurationSeconds || 10;
+            const color = this.options.highlightColor || "var(--background-modifier-success)";
+            item.style.setProperty("--highlight-duration", `${duration}s`);
+            item.style.setProperty("--highlight-color", color);
+            setTimeout(() => {
+                if (item.isConnected) item.removeClass("cost-txn-highlight");
+            }, duration * 1000); // 指定时间后移除高亮
+        }
 
         // Category Icon
         const iconEl = item.createDiv({ cls: "cost-txn-icon" });

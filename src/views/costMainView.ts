@@ -210,14 +210,20 @@ export class CostMainView extends ItemView {
 
         new TransactionList(container, this.app, transactions, accounts, runningBalances, {
             onTransactionClick: (txn) => {
-                new TransactionEditModal(this.app, txn, this.plugin.transactionService, this.plugin.accountService, this.plugin.settings.customIconPath, this.plugin, async () => {
+                new TransactionEditModal(this.app, txn, this.plugin.transactionService, this.plugin.accountService, this.plugin.settings.customIconPath, this.plugin, async (savedPath) => {
                     await this.plugin.transactionService.scanTransactions();
+                    if (savedPath) this.plugin.targetHighlightPath = savedPath;
                     this.plugin.refreshViews();
+                    if (savedPath) setTimeout(() => { this.plugin.targetHighlightPath = null; }, 500);
                 }).open();
             },
             onAccountClick: (name, field, txn) => this.handleAccountClick(name),
             customIconPath: this.plugin.settings.customIconPath,
-            iconResolver: this.plugin.iconResolver
+            iconResolver: this.plugin.iconResolver,
+            highlightPath: this.plugin.targetHighlightPath,
+            enableHighlightAfterSave: this.plugin.settings.enableHighlightAfterSave,
+            highlightDurationSeconds: this.plugin.settings.highlightDurationSeconds,
+            highlightColor: this.plugin.settings.highlightColor
         }).mount();
     }
 
@@ -269,14 +275,20 @@ export class CostMainView extends ItemView {
 
             new TransactionList(rightCol, this.app, accountTxns, accounts, runningBalances, {
                 onTransactionClick: (txn) => {
-                    new TransactionEditModal(this.app, txn, this.plugin.transactionService, this.plugin.accountService, this.plugin.settings.customIconPath, this.plugin, async () => {
+                    new TransactionEditModal(this.app, txn, this.plugin.transactionService, this.plugin.accountService, this.plugin.settings.customIconPath, this.plugin, async (savedPath) => {
                         await this.plugin.transactionService.scanTransactions();
+                        if (savedPath) this.plugin.targetHighlightPath = savedPath;
                         this.plugin.refreshViews();
+                        if (savedPath) setTimeout(() => { this.plugin.targetHighlightPath = null; }, 500);
                     }).open();
                 },
                 customIconPath: this.plugin.settings.customIconPath,
                 iconResolver: this.plugin.iconResolver,
-                activeAccount: this.selectedAccount?.fileName // Pass context
+                activeAccount: this.selectedAccount?.fileName, // Pass context
+                highlightPath: this.plugin.targetHighlightPath,
+                enableHighlightAfterSave: this.plugin.settings.enableHighlightAfterSave,
+                highlightDurationSeconds: this.plugin.settings.highlightDurationSeconds,
+                highlightColor: this.plugin.settings.highlightColor
             }).mount();
         } else {
             rightCol.createDiv({ cls: "cost-empty-message cost-select-hint", text: "← 请选择一个账户查看交易" });
@@ -505,11 +517,17 @@ export class CostMainView extends ItemView {
                 batchEditBtn.setText(`批量修改 (${selected.size})`);
             },
             onTransactionClick: (txn) => {
-                new TransactionEditModal(this.app, txn, this.plugin.transactionService, this.plugin.accountService, this.plugin.settings.customIconPath, this.plugin, async () => {
+                new TransactionEditModal(this.app, txn, this.plugin.transactionService, this.plugin.accountService, this.plugin.settings.customIconPath, this.plugin, async (savedPath) => {
                     await this.plugin.transactionService.scanTransactions();
+                    if (savedPath) this.plugin.targetHighlightPath = savedPath;
                     this.plugin.refreshViews();
+                    if (savedPath) setTimeout(() => { this.plugin.targetHighlightPath = null; }, 500);
                 }).open();
-            }
+            },
+            highlightPath: this.plugin.targetHighlightPath,
+            enableHighlightAfterSave: this.plugin.settings.enableHighlightAfterSave,
+            highlightDurationSeconds: this.plugin.settings.highlightDurationSeconds,
+            highlightColor: this.plugin.settings.highlightColor
         });
         table.mount();
 

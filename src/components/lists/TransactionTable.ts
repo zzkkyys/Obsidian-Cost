@@ -7,6 +7,10 @@ export interface TransactionTableOptions {
     onSelectionChange?: (selected: Set<string>) => void;
     onTransactionClick?: (txn: TransactionInfo) => void;
     activeAccount?: string | null;  // For context-aware rendering
+    highlightPath?: string | null;
+    enableHighlightAfterSave?: boolean;
+    highlightDurationSeconds?: number;
+    highlightColor?: string;
 }
 
 export class TransactionTable extends BaseComponent {
@@ -185,6 +189,16 @@ export class TransactionTable extends BaseComponent {
 
         this.transactions.forEach(txn => {
             const row = tbody.createEl("tr");
+            if (this.options.highlightPath === txn.path && this.options.enableHighlightAfterSave !== false) {
+                row.addClass("cost-txn-highlight");
+                const duration = this.options.highlightDurationSeconds || 10;
+                const color = this.options.highlightColor || "var(--background-modifier-success)";
+                row.style.setProperty("--highlight-duration", `${duration}s`);
+                row.style.setProperty("--highlight-color", color);
+                setTimeout(() => {
+                    if (row.isConnected) row.removeClass("cost-txn-highlight");
+                }, duration * 1000);
+            }
 
             // Checkbox
             const cbCell = row.createEl("td", { cls: "cost-table-checkbox" });

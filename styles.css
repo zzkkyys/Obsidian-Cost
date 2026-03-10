@@ -754,6 +754,18 @@ Obsidian Cost Plugin Styles
 	gap: 4px;
 }
 
+@keyframes cost-highlight-fade {
+	0% { background-color: var(--highlight-color, var(--background-modifier-success)); }
+	10% { background-color: var(--highlight-color, var(--background-modifier-success)); }
+	100% { background-color: transparent; }
+}
+
+.cost-transaction-item.cost-txn-highlight,
+.cost-txn-table tr.cost-txn-highlight {
+	animation: cost-highlight-fade var(--highlight-duration, 10s) ease-out forwards;
+	border-left: 3px solid var(--text-success);
+}
+
 .cost-transaction-item {
 	display: flex;
 	align-items: center;
@@ -1627,7 +1639,7 @@ Obsidian Cost Plugin Styles
 	width: min(760px, 96vw);
 	max-width: 760px;
 	border-radius: 24px;
-	overflow: hidden;
+	overflow: visible;
 }
 
 .cost-add-txn-modal .modal-content {
@@ -3258,17 +3270,12 @@ Obsidian Cost Plugin Styles
 
 /* ─── Inline Autocomplete (Payee) ─── */
 .cost-inline-autocomplete {
-	position: absolute;
-	left: 0;
-	right: 0;
-	top: 100%;
 	z-index: 100;
 	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 8px;
 	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 	padding: 6px;
-	margin-top: 4px;
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
