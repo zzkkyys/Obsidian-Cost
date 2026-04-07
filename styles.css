@@ -1656,7 +1656,7 @@ Obsidian Cost Plugin Styles
 
 .cost-add-txn-type-tabs {
 	display: grid;
-	grid-template-columns: repeat(4, minmax(0, 1fr));
+	grid-template-columns: repeat(5, minmax(0, 1fr));
 	gap: 0;
 	padding: 3px;
 	border-radius: 14px;
@@ -3353,4 +3353,237 @@ Obsidian Cost Plugin Styles
 /* Ensure the helper bar is positioned for absolute children */
 .cost-top-helper-bar {
 	position: relative;
+}
+/* ─── 借贷明细视图 ─── */
+
+.cost-loans-view {
+	padding: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.cost-loans-header {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.cost-loans-title {
+	margin: 0;
+	font-size: 16px;
+	font-weight: 700;
+}
+
+.cost-loans-desc {
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+/* 汇总行 */
+.cost-loan-overview {
+	display: flex;
+	gap: 12px;
+}
+
+.cost-loan-stat {
+	flex: 1;
+	padding: 12px 16px;
+	border-radius: 12px;
+	background: var(--background-secondary);
+}
+
+.cost-loan-stat-label {
+	font-size: 12px;
+	color: var(--text-muted);
+	margin-bottom: 4px;
+}
+
+.cost-loan-stat-value {
+	font-size: 20px;
+	font-weight: 700;
+}
+
+.cost-loan-stat-outstanding .cost-loan-stat-value {
+	color: var(--color-red);
+}
+
+.cost-loan-stat-clear .cost-loan-stat-value {
+	color: var(--color-green);
+}
+
+/* 出借人卡片列表 */
+.cost-loan-list {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.cost-loan-card {
+	border-radius: 12px;
+	border: 1px solid var(--background-modifier-border);
+	overflow: hidden;
+	background: var(--background-primary);
+}
+
+.cost-loan-card-settled {
+	opacity: 0.65;
+}
+
+.cost-loan-card-header {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 14px 16px;
+	cursor: pointer;
+	user-select: none;
+}
+
+.cost-loan-card-header:hover {
+	background: var(--background-secondary);
+}
+
+.cost-loan-card-left {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.cost-loan-card-name-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.cost-loan-card-name {
+	font-size: 15px;
+	font-weight: 600;
+}
+
+.cost-loan-badge-settled {
+	font-size: 11px;
+	padding: 1px 7px;
+	border-radius: 20px;
+	background: var(--color-green);
+	color: #fff;
+}
+
+.cost-loan-card-stats-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.cost-loan-mini-sep {
+	opacity: 0.4;
+}
+
+.cost-loan-card-right {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+}
+
+.cost-loan-outstanding {
+	font-size: 18px;
+	font-weight: 700;
+	color: var(--color-red);
+}
+
+.cost-loan-outstanding-zero {
+	color: var(--color-green);
+}
+
+.cost-loan-outstanding-label {
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
+.cost-loan-chevron {
+	color: var(--text-muted);
+	width: 18px;
+	flex-shrink: 0;
+}
+
+/* 明细区 */
+.cost-loan-detail {
+	border-top: 1px solid var(--background-modifier-border);
+	padding: 8px 0;
+}
+
+.cost-loan-detail-row {
+	display: grid;
+	grid-template-columns: 90px 44px 1fr auto auto;
+	align-items: center;
+	gap: 8px;
+	padding: 7px 16px;
+	font-size: 13px;
+}
+
+.cost-loan-detail-row-clickable {
+	cursor: pointer;
+}
+
+.cost-loan-detail-row-clickable:hover {
+	background: var(--background-secondary);
+}
+
+.cost-loan-detail-date {
+	color: var(--text-muted);
+	font-size: 12px;
+}
+
+.cost-loan-detail-kind {
+	font-size: 12px;
+	font-weight: 600;
+	padding: 2px 6px;
+	border-radius: 6px;
+	text-align: center;
+}
+
+.cost-loan-kind-borrow {
+	background: rgba(239, 68, 68, 0.1);
+	color: var(--color-red);
+}
+
+.cost-loan-kind-repay {
+	background: rgba(34, 197, 94, 0.1);
+	color: var(--color-green);
+}
+
+.cost-loan-detail-account {
+	color: var(--text-normal);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.cost-loan-detail-memo {
+	color: var(--text-muted);
+	font-size: 12px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.cost-loan-detail-amount {
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.cost-loan-amount-borrow {
+	color: var(--color-red);
+}
+
+.cost-loan-amount-repay {
+	color: var(--color-green);
+}
+
+/* TransactionList 出借人标签 */
+.cost-txn-lender {
+	font-size: 12px;
+	color: var(--text-muted);
 }

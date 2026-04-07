@@ -180,8 +180,9 @@ export class CategoryStatsCard extends BaseComponent {
             if (!txn.date) return false;
             const parts = txn.date.split("-");
             if (parts.length < 2) return false;
-            const y = parseInt(parts[0]!);
-            const m = parseInt(parts[1]!);
+            const y = parseInt(parts[0] ?? "", 10);
+            const m = parseInt(parts[1] ?? "", 10);
+            if (isNaN(y) || isNaN(m)) return false;
 
             if (this.rangeType === "year") return y === this.year;
             if (this.rangeType === "month") return y === this.year && (m - 1) === this.month;

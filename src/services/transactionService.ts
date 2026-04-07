@@ -1,7 +1,7 @@
 import { App, TFile, CachedMetadata, normalizePath } from "obsidian";
-import { TransactionFrontmatter } from "../types";
+import { AccountInfo, TransactionFrontmatter } from "../types";
 import { getMarkdownFilesInFolder } from "../utils/fileUtils";
-import { roundCurrency } from "../utils/format";
+import { roundCurrency, getLocalDateString, getLocalTimeString } from "../utils/format";
 
 /**
  * 交易信息
@@ -18,7 +18,7 @@ export interface TransactionInfo {
     /** 时间 (HH:MM:SS) */
     time: string;
     /** 交易类型 */
-    txnType: "收入" | "支出" | "还款" | "转账";
+    txnType: "收入" | "支出" | "还款" | "转账" | "借款";
     /** 分类 */
     category: string;
     /** 金额 */
@@ -111,28 +111,31 @@ export class TransactionService {
             return null;
         }
 
+        // YAML can parse bare values as non-strings (e.g. "15:51:00" → number, numeric payees).
+        // Coerce all expected-string fields explicitly.
+        const str = (v: unknown): string => (v != null && v !== false) ? String(v) : "";
         return {
             path: file.path,
             fileName: file.basename,
-            uid: fm.uid || "",
-            date: fm.date || "",
-            time: fm.time || "",
-            txnType: fm.txn_type || "支出",
-            category: fm.category || "",
-            amount: fm.amount || 0,
-            discount: fm.discount || 0,
-            refund: fm.refund || 0,
-            refundTo: fm.refund_to || "",
-            currency: fm.currency || "CNY",
-            from: fm.from || "",
-            to: fm.to || "",
-            payee: fm.payee || "",
-            address: fm.address || "",
+            uid: str(fm.uid),
+            date: str(fm.date),
+            time: str(fm.time),
+            txnType: (typeof fm.txn_type === "string" && fm.txn_type) ? fm.txn_type : "支出",
+            category: str(fm.category),
+            amount: typeof fm.amount === "number" ? fm.amount : (Number(fm.amount) || 0),
+            discount: typeof fm.discount === "number" ? fm.discount : (Number(fm.discount) || 0),
+            refund: typeof fm.refund === "number" ? fm.refund : (Number(fm.refund) || 0),
+            refundTo: str(fm.refund_to),
+            currency: str(fm.currency) || "CNY",
+            from: str(fm.from),
+            to: str(fm.to),
+            payee: str(fm.payee),
+            address: str(fm.address),
             latitude: fm.latitude,
             longitude: fm.longitude,
-            memo: fm.memo || "",
-            note: fm.note || "",
-            persons: fm.persons || [],
+            memo: str(fm.memo),
+            note: str(fm.note),
+            persons: Array.isArray(fm.persons) ? fm.persons : [],
         };
     }
 
@@ -170,13 +173,28 @@ export class TransactionService {
     }
 
     /**
+     * 标准化账户字段值：剥离 [[...]] wiki 链接格式后与账户文件名精确匹配
+     */
+    private matchesAccount(fieldValue: string, accountFileName: string): boolean {
+        return fieldValue.replace(/\[\[|\]\]/g, "").trim() === accountFileName;
+    }
+
+    /**
+     * 计算账户当前余额（期初余额 + 余额变动）
+     * 统一入口，避免各处重复实现
+     */
+    getAccountBalance(account: AccountInfo): number {
+        return account.openingBalance + this.calculateBalanceChange(account.fileName);
+    }
+
+    /**
      * 获取指定账户的所有交易
      */
     getTransactionsByAccount(accountFileName: string): TransactionInfo[] {
         return this.transactionCache.filter(txn =>
-            txn.from.includes(accountFileName) ||
-            txn.to.includes(accountFileName) ||
-            (txn.refundTo && txn.refundTo.includes(accountFileName))
+            this.matchesAccount(txn.from, accountFileName) ||
+            this.matchesAccount(txn.to, accountFileName) ||
+            (txn.refundTo ? this.matchesAccount(txn.refundTo, accountFileName) : false)
         );
     }
 
@@ -188,12 +206,15 @@ export class TransactionService {
         let change = 0;
 
         for (const txn of this.transactionCache) {
-            const isFrom = txn.from.includes(accountFileName);
-            const isTo = txn.to.includes(accountFileName);
-            const isRefundTo = txn.refundTo ? txn.refundTo.includes(accountFileName) : isFrom;
+            const isFrom = this.matchesAccount(txn.from, accountFileName);
+            const isTo = this.matchesAccount(txn.to, accountFileName);
+            const isRefundTo = txn.refundTo ? this.matchesAccount(txn.refundTo, accountFileName) : isFrom;
 
             if (txn.txnType === "收入" && isTo) {
                 // 收入到此账户
+                change += txn.amount;
+            } else if (txn.txnType === "借款" && isTo) {
+                // 借款：钱借入到 to 账户，余额增加
                 change += txn.amount;
             } else if (txn.txnType === "支出") {
                 // 支出: from 减去全额
@@ -273,12 +294,15 @@ export class TransactionService {
      * 计算单笔交易对指定账户的余额影响
      */
     getBalanceChangeForTransaction(txn: TransactionInfo, accountFileName: string): number {
-        const isFrom = txn.from.includes(accountFileName);
-        const isTo = txn.to.includes(accountFileName);
-        const isRefundTo = txn.refundTo ? txn.refundTo.includes(accountFileName) : isFrom;
+        const isFrom = this.matchesAccount(txn.from, accountFileName);
+        const isTo = this.matchesAccount(txn.to, accountFileName);
+        const isRefundTo = txn.refundTo ? this.matchesAccount(txn.refundTo, accountFileName) : isFrom;
 
         if (txn.txnType === "收入") {
             if (isTo || isFrom) return txn.amount;
+        } else if (txn.txnType === "借款") {
+            // 借款：to 账户余额增加
+            if (isTo) return txn.amount;
         } else if (txn.txnType === "支出") {
             let change = 0;
             if (isFrom) change -= txn.amount;
@@ -341,26 +365,23 @@ export class TransactionService {
         for (const txn of sortedTransactions) {
             const txnBalances = new Map<string, { before: number; after: number }>();
 
-            // 获取涉及的账户
+            // 收集这笔交易涉及的所有账户（去重）
+            // refundTo 显式指定时，退款进入该账户而非 from 账户，必须单独处理
             const fromAccount = txn.from?.replace(/\[\[|\]\]/g, "") || "";
             const toAccount = txn.to?.replace(/\[\[|\]\]/g, "") || "";
+            const refundToAccount = txn.refundTo?.replace(/\[\[|\]\]/g, "") || "";
 
-            // 计算 from 账户的变化
-            if (fromAccount && accountOpeningBalances.has(fromAccount)) {
-                const change = this.getBalanceChangeForTransaction(txn, fromAccount);
-                const before = currentBalances.get(fromAccount) || 0;
-                const after = before + change;
-                txnBalances.set(fromAccount, { before, after });
-                currentBalances.set(fromAccount, after);
-            }
+            const involvedAccounts = new Set<string>(
+                [fromAccount, toAccount, refundToAccount].filter(Boolean)
+            );
 
-            // 计算 to 账户的变化（如果与 from 不同）
-            if (toAccount && toAccount !== fromAccount && accountOpeningBalances.has(toAccount)) {
-                const change = this.getBalanceChangeForTransaction(txn, toAccount);
-                const before = currentBalances.get(toAccount) || 0;
+            for (const account of involvedAccounts) {
+                if (!accountOpeningBalances.has(account)) continue;
+                const change = this.getBalanceChangeForTransaction(txn, account);
+                const before = currentBalances.get(account) ?? 0;
                 const after = before + change;
-                txnBalances.set(toAccount, { before, after });
-                currentBalances.set(toAccount, after);
+                txnBalances.set(account, { before, after });
+                currentBalances.set(account, after);
             }
 
             result.set(txn.path, txnBalances);
@@ -436,10 +457,15 @@ export class TransactionService {
         // 移动之前记录旧路径
         const oldPath = file.path;
 
-        // 移动文件
-        await this.app.fileManager.renameFile(file, expectedPath);
+        // 移动文件（失败时抛出错误，缓存不更新保持一致性）
+        try {
+            await this.app.fileManager.renameFile(file, expectedPath);
+        } catch (err) {
+            console.error(`[Cost Plugin] 移动交易文件失败: ${oldPath} -> ${expectedPath}`, err);
+            throw new Error(`无法移动交易文件到新日期文件夹：${err instanceof Error ? err.message : String(err)}`);
+        }
 
-        // 更新缓存中的路径
+        // 移动成功后再更新缓存
         const idx = this.transactionCache.findIndex(t => t.path === oldPath);
         if (idx !== -1 && this.transactionCache[idx]) {
             this.transactionCache[idx].path = expectedPath;
@@ -450,23 +476,21 @@ export class TransactionService {
         if (newFile instanceof TFile) {
             return newFile;
         }
-        // fallback: 原文件对象的 path 会被 Obsidian 自动更新
+        // fallback: Obsidian 会自动更新原文件对象的 path
         return file;
     }
 
     async createTransaction(): Promise<TFile> {
         // 1. Prepare Date Info
         const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, "0");
-        const day = String(now.getDate()).padStart(2, "0");
-        const dateStr = `${year}-${month}-${day}`;
-        const timeStr = (now.toTimeString().split(" ")[0] || "00:00:00").substring(0, 5);
+        const dateStr = getLocalDateString(now);
+        const timeStr = getLocalTimeString(now);
 
         // 2. Build Folder Path: root/YYYY/YYYY-MM/YYYY-MM-DD
-        const yearly = `${this.transactionsPath}/${year}`;
-        const monthly = `${yearly}/${year}-${month}`;
-        const daily = `${monthly}/${year}-${month}-${day}`;
+        const [yearStr, monthStr, dayStr] = dateStr.split("-");
+        const yearly = `${this.transactionsPath}/${yearStr}`;
+        const monthly = `${yearly}/${yearStr}-${monthStr}`;
+        const daily = `${monthly}/${yearStr}-${monthStr}-${dayStr}`;
 
         // 3. Ensure Folders Exist
         await this.ensureFolder(this.transactionsPath);

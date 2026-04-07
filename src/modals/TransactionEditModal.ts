@@ -739,13 +739,14 @@ export class TransactionEditModal extends Modal {
             sourceAccountChip.textSpan.setText(from || sourceLabel);
             sourceAccountChip.chip.toggleClass("has-value", Boolean(from));
 
-            const showTarget = type === "收入" || type === "转账" || type === "还款";
+            const showTarget = type === "收入" || type === "转账" || type === "还款" || type === "借款";
             targetAccountChip.chip.style.display = showTarget ? "flex" : "none";
 
             let targetLabel = "账户";
             if (type === "收入") targetLabel = "入账账户";
             if (type === "转账") targetLabel = "转入账户";
             if (type === "还款") targetLabel = "还款目标";
+            if (type === "借款") targetLabel = "借入账户";
 
             targetAccountChip.textSpan.setText(to || targetLabel);
             targetAccountChip.chip.toggleClass("has-value", Boolean(to));
@@ -1068,6 +1069,7 @@ export class TransactionEditModal extends Modal {
             if (type === "支出" && from) summaryParts.push(`从 ${from} 支付`);
             if (type === "收入" && to) summaryParts.push(`存入 ${to}`);
             if ((type === "转账" || type === "还款") && from && to) summaryParts.push(`${from} -> ${to}`);
+            if (type === "借款" && to) summaryParts.push(`借入 ${to}`);
 
             if (payee && type !== "转账") summaryParts.push(payee);
             if (personsStr.trim()) summaryParts.push(`标签：${personsStr}`);

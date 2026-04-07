@@ -19,8 +19,9 @@ import { TransactionEditModal } from "../modals/TransactionEditModal";
 import { TransactionTable } from "../components/lists/TransactionTable";
 import { BatchEditModal } from "../modals/BatchEditModal";
 import { DraggableGrid } from "../components/dashboard/DraggableGrid";
+import { LoanLedger } from "../components/loans/LoanLedger";
 
-type TabType = "transactions" | "accounts" | "stats" | "management";
+type TabType = "transactions" | "accounts" | "stats" | "management" | "loans";
 
 export class CostMainView extends ItemView {
     private plugin: CostPlugin;
@@ -85,7 +86,7 @@ export class CostMainView extends ItemView {
 
         // Create containers for each tab, initially hidden
         const contentContainer = this.contentEl.createDiv({ cls: "cost-view-content" });
-        const tabs: TabType[] = ["transactions", "accounts", "stats", "management"];
+        const tabs: TabType[] = ["transactions", "accounts", "stats", "management", "loans"];
 
         tabs.forEach(tab => {
             const container = contentContainer.createDiv({ cls: "cost-tab-content" });
@@ -151,6 +152,8 @@ export class CostMainView extends ItemView {
             this.renderStatsTab(container);
         } else if (this.currentTab === "management") {
             this.renderManagementTab(container);
+        } else if (this.currentTab === "loans") {
+            this.renderLoansTab(container);
         }
     }
 
@@ -160,7 +163,8 @@ export class CostMainView extends ItemView {
             { id: "transactions", label: "交易" },
             { id: "accounts", label: "账户" },
             { id: "stats", label: "统计" },
-            { id: "management", label: "管理" }
+            { id: "management", label: "管理" },
+            { id: "loans", label: "借贷" },
         ];
 
         tabs.forEach(tab => {
@@ -182,7 +186,7 @@ export class CostMainView extends ItemView {
         const addBtn = tabBar.createDiv({ cls: "cost-tab-action" });
         setIcon(addBtn, "plus");
         addBtn.onclick = () => {
-            (this.app as any).commands.executeCommandById(this.plugin.manifest.id + ":create-transaction");
+            this.app.commands.executeCommandById(this.plugin.manifest.id + ":create-transaction");
         };
 
         const refreshBtn = tabBar.createDiv({ cls: "cost-tab-refresh" });
@@ -239,11 +243,8 @@ export class CostMainView extends ItemView {
         const itemCounts = new Map<string, number>();
 
         accounts.forEach(acc => {
-            const change = this.plugin.transactionService.calculateBalanceChange(acc.fileName);
-            const bal = change + acc.openingBalance;
-            balances.set(acc.fileName, bal);
-            const count = this.plugin.transactionService.getTransactionsByAccount(acc.fileName).length;
-            itemCounts.set(acc.fileName, count);
+            balances.set(acc.fileName, this.plugin.transactionService.getAccountBalance(acc));
+            itemCounts.set(acc.fileName, this.plugin.transactionService.getTransactionsByAccount(acc.fileName).length);
         });
 
         // Account List
@@ -467,7 +468,7 @@ export class CostMainView extends ItemView {
 
         // Type
         const typeSelect = filterBar.createEl("select", { cls: "cost-filter-select" });
-        ["all", "支出", "收入", "转账", "还款"].forEach(t => {
+        ["all", "支出", "收入", "转账", "还款", "借款"].forEach(t => {
             const opt = typeSelect.createEl("option", { value: t, text: t === "all" ? "所有类型" : t });
             if (this.filters.type === t) opt.selected = true;
         });
@@ -598,6 +599,35 @@ export class CostMainView extends ItemView {
         updateTable();
     }
 
+
+    private renderLoansTab(container: HTMLElement): void {
+        container.addClass("cost-loans-view");
+
+        const header = container.createDiv({ cls: "cost-loans-header" });
+        header.createEl("h3", { text: "借贷明细", cls: "cost-loans-title" });
+        header.createDiv({
+            cls: "cost-loans-desc",
+            text: "按出借人汇总借款与还款，使用相同的「商家」字段关联两者。"
+        });
+
+        const transactions = this.plugin.transactionService.getTransactions();
+
+        new LoanLedger(container, transactions, (txn) => {
+            new TransactionEditModal(
+                this.app, txn,
+                this.plugin.transactionService,
+                this.plugin.accountService,
+                this.plugin.settings.customIconPath,
+                this.plugin,
+                async (savedPath) => {
+                    await this.plugin.transactionService.scanTransactions();
+                    if (savedPath) this.plugin.targetHighlightPath = savedPath;
+                    this.plugin.refreshViews();
+                    if (savedPath) setTimeout(() => { this.plugin.targetHighlightPath = null; }, 500);
+                }
+            ).open();
+        }).mount();
+    }
 
     private handleAccountClick(accountName: string): void {
         const account = this.plugin.accountService.getAccounts().find(a => a.fileName === accountName || a.displayName === accountName);

@@ -250,13 +250,29 @@ export class DraggableGrid {
     }
 
     /**
-     * Cleanup
+     * Cleanup — 可在拖拽进行中安全调用
      */
     destroy(): void {
+        // 移除全局拖拽监听（若正在拖拽中销毁也能正确清理）
         document.removeEventListener("pointermove", this.boundPointerMove);
         document.removeEventListener("pointerup", this.boundPointerUp);
+
+        // 恢复可能被拖拽锁定的文本选择
+        document.body.style.userSelect = "";
+
+        // 清理拖拽产生的游离 DOM 节点
         this.ghostEl?.remove();
+        this.ghostEl = null;
         this.placeholderEl?.remove();
+        this.placeholderEl = null;
+
+        // 重置拖拽状态
+        this.dragId = null;
+
+        // 释放 widget 引用，允许 GC 回收
+        this.widgetEls.clear();
+        this.widgetDefs.clear();
+        this.order = [];
     }
 }
 

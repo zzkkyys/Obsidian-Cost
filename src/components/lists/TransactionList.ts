@@ -419,7 +419,7 @@ export class TransactionList extends BaseComponent {
             amountEl.setText(`+${txn.refund?.toFixed(2)}`);
             amountEl.addClass("cost-amount-收入");
         } else {
-            const prefix = txn.txnType === "收入" ? "+" : (txn.txnType === "支出" ? "-" : "");
+            const prefix = (txn.txnType === "收入" || txn.txnType === "借款") ? "+" : (txn.txnType === "支出" ? "-" : "");
             if (txn.txnType === "支出" && txn.refund > 0) {
                 const net = netAmount(txn.amount, txn.refund);
                 amountEl.setText(`${prefix}${net.toFixed(2)}`);
@@ -527,6 +527,13 @@ export class TransactionList extends BaseComponent {
             bubble.createSpan({ text: ` (-${formatThousands(outAmt, 2)}) → ` });
             renderItem(txn.to, 'to');
             bubble.createSpan({ text: ` (+${formatThousands(inAmt, 2)})` });
+        } else if (txn.txnType === "借款") {
+            // 出借人（payee 或 from） → 借入账户（to）
+            if (txn.payee) {
+                bubble.createSpan({ cls: "cost-txn-lender", text: txn.payee });
+                bubble.createSpan({ text: " → " });
+            }
+            if (txn.to) renderItem(txn.to, 'to');
         } else {
             const name = txn.from || txn.to;
             const field = txn.from ? 'from' : 'to';
@@ -541,7 +548,9 @@ export class TransactionList extends BaseComponent {
         return TransactionList.CATEGORY_ICONS[cat] ||
             (txnType === "转账" ? "arrow-right-left" :
                 (txnType === "还款" ? "credit-card" :
-                    (txnType === "收入" ? "banknote" : "circle-dollar-sign")));
+                    (txnType === "收入" ? "banknote" :
+                        (txnType === "借款" ? "hand-coins" :
+                            "circle-dollar-sign"))));
     }
 
     private static CATEGORY_ICONS: Record<string, string> = {

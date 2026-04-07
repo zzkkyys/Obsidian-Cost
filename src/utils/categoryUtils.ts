@@ -4,7 +4,7 @@
  */
 import { TransactionInfo } from "../services/transactionService";
 
-export type TxnType = "支出" | "收入" | "转账" | "还款";
+export type TxnType = "支出" | "收入" | "转账" | "还款" | "借款";
 
 export interface TypeOption {
     value: TxnType;
@@ -21,7 +21,8 @@ export const TYPE_OPTIONS: TypeOption[] = [
     { value: "支出", label: "支出" },
     { value: "收入", label: "收入" },
     { value: "转账", label: "转账" },
-    { value: "还款", label: "还款" }
+    { value: "还款", label: "还款" },
+    { value: "借款", label: "借款" },
 ];
 
 /**
@@ -87,7 +88,14 @@ function getDefaultCategories(type: TxnType): CategoryGroup[] {
             { primary: "信用卡", selectableSelf: true, children: [] },
             { primary: "房贷", selectableSelf: true, children: [] },
             { primary: "车贷", selectableSelf: true, children: [] },
-            { primary: "借款", selectableSelf: true, children: [] },
+            { primary: "还人情", selectableSelf: true, children: [] },
+            { primary: "其他", selectableSelf: true, children: [] }
+        ];
+    } else if (type === "借款") {
+        return [
+            { primary: "个人借款", selectableSelf: true, children: [] },
+            { primary: "银行贷款", selectableSelf: true, children: [] },
+            { primary: "信用借款", selectableSelf: true, children: [] },
             { primary: "其他", selectableSelf: true, children: [] }
         ];
     }

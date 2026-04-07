@@ -49,14 +49,6 @@ export class AccountsSidebarView extends ItemView {
     }
 
     /**
-     * 计算账户当前余额
-     */
-    private calculateBalance(account: AccountInfo): number {
-        const change = this.plugin.transactionService.calculateBalanceChange(account.fileName);
-        return account.openingBalance + change;
-    }
-
-    /**
      * 渲染总余额汇总卡片
      */
     private renderBalanceSummary(accounts: AccountInfo[]): void {
@@ -67,7 +59,7 @@ export class AccountsSidebarView extends ItemView {
         let liabilitiesTotal = 0;  // 负债（信用卡欠款）
 
         for (const account of accounts) {
-            const balance = this.calculateBalance(account);
+            const balance = this.plugin.transactionService.getAccountBalance(account);
             if (account.accountKind === "credit") {
                 // 信用卡：负余额表示欠款
                 liabilitiesTotal += Math.abs(Math.min(0, balance));
@@ -246,7 +238,7 @@ export class AccountsSidebarView extends ItemView {
         // 分组小计余额
         let totalBalance = 0;
         for (const account of accounts) {
-            totalBalance += this.calculateBalance(account);
+            totalBalance += this.plugin.transactionService.getAccountBalance(account);
         }
         totalBalance = this.normalizeBalance(totalBalance);
         const totalEl = groupHeader.createSpan({ cls: "cost-account-group-total" });
@@ -298,7 +290,7 @@ export class AccountsSidebarView extends ItemView {
         }
 
         // 余额
-        const balance = this.normalizeBalance(this.calculateBalance(account));
+        const balance = this.normalizeBalance(this.plugin.transactionService.getAccountBalance(account));
         const balanceEl = item.createDiv({ cls: "cost-account-balance" });
         balanceEl.setText(`${this.formatNumber(balance)} ${account.currency}`);
         // 余额为0时不添加颜色类，显示为默认黑色

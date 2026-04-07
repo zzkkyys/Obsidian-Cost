@@ -22,14 +22,6 @@ export class BalanceCard extends BaseComponent {
         this.transactionService = transactionService;
     }
 
-    /**
-     * 计算单个账户的当前余额（与侧边栏逻辑完全一致）
-     */
-    private calculateBalance(account: AccountInfo): number {
-        const change = this.transactionService.calculateBalanceChange(account.fileName);
-        return account.openingBalance + change;
-    }
-
     protected render(): void {
         const card = this.containerEl.createDiv({ cls: "cost-balance-summary-card" });
 
@@ -38,7 +30,7 @@ export class BalanceCard extends BaseComponent {
         let liabilitiesTotal = 0; // 负债（信用卡欠款）
 
         for (const account of this.accounts) {
-            const balance = this.calculateBalance(account);
+            const balance = this.transactionService.getAccountBalance(account);
             if (account.accountKind === "credit") {
                 // 信用卡：只有负余额部分算作负债
                 liabilitiesTotal += Math.abs(Math.min(0, balance));

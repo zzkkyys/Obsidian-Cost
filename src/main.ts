@@ -12,6 +12,50 @@ import { CostMainView, COST_MAIN_VIEW_TYPE } from "./views/costMainView";
 import { CostStatsView, COST_STATS_VIEW_TYPE } from "./views/costStatsView";
 import { TransactionList } from "./components/lists/TransactionList";
 import { generateSkillPrompt } from "./skill/transactionSkill";
+import { getLocalDateString, getLocalTimeString } from "./utils/format";
+
+/** YYYY-MM-DD 格式日期正则 */
+const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * 解析 ob-cost 代码块的参数配置
+ * 支持 YAML 对象（date/startDate/endDate）或裸日期字符串，
+ * 无配置时回退到文件名。
+ */
+function parseCodeBlockConfig(
+    source: string,
+    sourcePath: string
+): { targetDate: string; startDate: string; endDate: string } {
+    let targetDate = "";
+    let startDate = "";
+    let endDate = "";
+
+    // 1. 尝试解析 YAML
+    try {
+        const config = parseYaml(source) as Record<string, unknown> | null;
+        if (typeof config === "object" && config !== null) {
+            if (config.date) targetDate = String(config.date);
+            if (config.startDate) startDate = String(config.startDate);
+            if (config.endDate) endDate = String(config.endDate);
+        } else if (typeof source === "string" && source.trim()) {
+            // 向后兼容：裸日期字符串
+            const trimmed = source.trim();
+            if (DATE_REGEX.test(trimmed)) targetDate = trimmed;
+        }
+    } catch {
+        // 不是有效 YAML，尝试裸日期字符串
+        const trimmed = source.trim();
+        if (DATE_REGEX.test(trimmed)) targetDate = trimmed;
+    }
+
+    // 2. 无配置时回退到文件名
+    if (!targetDate && !startDate && !endDate && sourcePath) {
+        const namePart = sourcePath.split("/").pop()?.split(".")[0] ?? "";
+        if (DATE_REGEX.test(namePart)) targetDate = namePart;
+    }
+
+    return { targetDate, startDate, endDate };
+}
 
 export default class CostPlugin extends Plugin {
 	settings: CostPluginSettings;
@@ -20,6 +64,7 @@ export default class CostPlugin extends Plugin {
 	iconResolver: IconResolver;
 	eventBus: EventBus;
 	targetHighlightPath: string | null = null;
+	private cleanupPropertyWidgets: (() => void) | null = null;
 
 	async onload() {
 		await this.loadSettings();
@@ -54,7 +99,7 @@ export default class CostPlugin extends Plugin {
 			await this.syncKnownData();
 
 			// 注册 Properties 面板的账户建议（用于 Live Preview 模式）
-			registerPropertyWidgets(this.app, this.accountService);
+			this.cleanupPropertyWidgets = registerPropertyWidgets(this.app, this.accountService);
 		});
 
 		// 注册账户建议器（用于 Source Mode 下 from/to 字段自动补全）
@@ -135,47 +180,7 @@ export default class CostPlugin extends Plugin {
 
 		// 注册 Markdown Code Block Processor
 		this.registerMarkdownCodeBlockProcessor("ob-cost", (source, el, ctx) => {
-			let targetDate = "";
-			let startDate = "";
-			let endDate = "";
-
-			// 1. Try to parse YAML config from source
-			try {
-				const config = parseYaml(source) as Record<string, unknown> | null;
-				if (typeof config === "object" && config !== null) {
-					if (config.date) targetDate = String(config.date);
-					if (config.startDate) startDate = String(config.startDate);
-					if (config.endDate) endDate = String(config.endDate);
-				} else if (typeof source === "string" && source.trim()) {
-					// Backward compatibility: check if source is just a date string
-					const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-					const trimmed = source.trim();
-					if (dateRegex.test(trimmed)) {
-						targetDate = trimmed;
-					}
-				}
-			} catch (e) {
-				// Not valid YAML, maybe just a date string?
-				const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-				const trimmed = source.trim();
-				if (dateRegex.test(trimmed)) {
-					targetDate = trimmed;
-				}
-			}
-
-			// 2. If no valid config, try fallback to filename
-			if (!targetDate && !startDate && !endDate) {
-				const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-				if (ctx.sourcePath) {
-					const fileName = ctx.sourcePath.split("/").pop();
-					if (fileName) {
-						const namePart = fileName.split(".")[0];
-						if (namePart && dateRegex.test(namePart)) {
-							targetDate = namePart;
-						}
-					}
-				}
-			}
+			const { targetDate, startDate, endDate } = parseCodeBlockConfig(source, ctx.sourcePath ?? "");
 
 			if (!targetDate && !startDate && !endDate) {
 				el.createDiv({ text: "Obsidian Cost: 请指定日期 (date 或 startDate/endDate)，或在日记文件中使用。", cls: "cost-error-message" });
@@ -269,8 +274,8 @@ export default class CostPlugin extends Plugin {
 					path: file.path,
 					fileName: file.basename,
 					uid: "",
-					date: new Date().toISOString().split("T")[0] || "",
-					time: (new Date().toTimeString().split(" ")[0] || "00:00:00").substring(0, 5),
+					date: getLocalDateString(),
+					time: getLocalTimeString(),
 					txnType: "支出",
 					category: "",
 					amount: 0,
@@ -320,6 +325,7 @@ export default class CostPlugin extends Plugin {
 	}
 
 	onunload() {
+		this.cleanupPropertyWidgets?.();
 		this.eventBus.destroy();
 		this.app.workspace.detachLeavesOfType(ACCOUNTS_SIDEBAR_VIEW_TYPE);
 		this.app.workspace.detachLeavesOfType(COST_MAIN_VIEW_TYPE);

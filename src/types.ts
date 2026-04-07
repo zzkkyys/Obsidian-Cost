@@ -28,7 +28,7 @@ export interface TransactionFrontmatter {
     date: string;
     /** 时间 (HH:MM:SS) */
     time?: string;
-    txn_type: "收入" | "支出" | "还款" | "转账";
+    txn_type: "收入" | "支出" | "还款" | "转账" | "借款";
     category: string;
     amount: number;
     /** 优惠金额 (仅还款有效) */

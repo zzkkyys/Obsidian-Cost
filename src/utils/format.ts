@@ -39,3 +39,23 @@ export function roundCurrency(value: number): number {
 export function netAmount(amount: number, deduction: number = 0): number {
     return roundCurrency(amount - deduction);
 }
+
+/**
+ * 获取本地日期字符串 (YYYY-MM-DD)
+ * 使用本地时间而非 UTC，避免跨时区日期错误
+ */
+export function getLocalDateString(date: Date = new Date()): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+}
+
+/**
+ * 获取本地时间字符串 (HH:MM)
+ */
+export function getLocalTimeString(date: Date = new Date()): string {
+    const h = String(date.getHours()).padStart(2, "0");
+    const min = String(date.getMinutes()).padStart(2, "0");
+    return `${h}:${min}`;
+}

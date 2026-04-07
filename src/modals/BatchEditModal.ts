@@ -1,4 +1,4 @@
-import { App, Modal, Setting, Notice, TFile } from "obsidian";
+import { App, Modal, Setting, Notice, TFile, TextComponent, DropdownComponent } from "obsidian";
 import { TransactionService } from "../services/transactionService";
 
 export class BatchEditModal extends Modal {
@@ -46,29 +46,29 @@ export class BatchEditModal extends Modal {
         const container = contentEl.createDiv({ cls: "cost-batch-edit-form" });
 
         // Date
-        let dateInput: any;
+        let dateInput: TextComponent | null = null;
         new Setting(container)
             .setName("日期")
             .setDesc("启用以修改日期")
             .addToggle(t => t.setValue(false).onChange(v => {
                 this.enabledFields.date = v;
-                if (dateInput) dateInput.setDisabled(!v);
+                dateInput?.setDisabled(!v);
             }))
             .addText(t => {
-                dateInput = t; // Store ref
-                t.inputEl.type = "date"; // Fix setType error by accessing inputEl directly
+                dateInput = t;
+                t.inputEl.type = "date";
                 t.setDisabled(true);
                 t.onChange(v => this.updates.date = v);
             });
 
         // Type
-        let typeDropdown: any;
+        let typeDropdown: DropdownComponent | null = null;
         new Setting(container)
             .setName("类型")
             .setDesc("启用以修改交易类型")
             .addToggle(t => t.setValue(false).onChange(v => {
                 this.enabledFields.txnType = v;
-                if (typeDropdown) typeDropdown.setDisabled(!v);
+                typeDropdown?.setDisabled(!v);
             }))
             .addDropdown(d => {
                 typeDropdown = d;
@@ -76,18 +76,19 @@ export class BatchEditModal extends Modal {
                 d.addOption("收入", "收入");
                 d.addOption("转账", "转账");
                 d.addOption("还款", "还款");
+                d.addOption("借款", "借款");
                 d.setDisabled(true);
                 d.onChange(v => this.updates.txnType = v);
             });
 
         // Category
-        let catInput: any;
+        let catInput: TextComponent | null = null;
         new Setting(container)
             .setName("分类")
             .setDesc("启用以修改分类")
             .addToggle(t => t.setValue(false).onChange(v => {
                 this.enabledFields.category = v;
-                if (catInput) catInput.setDisabled(!v);
+                catInput?.setDisabled(!v);
             }))
             .addText(t => {
                 catInput = t;
@@ -97,12 +98,12 @@ export class BatchEditModal extends Modal {
             });
 
         // Payee
-        let payeeInput: any;
+        let payeeInput: TextComponent | null = null;
         new Setting(container)
             .setName("交易对象/商户")
             .addToggle(t => t.setValue(false).onChange(v => {
                 this.enabledFields.payee = v;
-                if (payeeInput) payeeInput.setDisabled(!v);
+                payeeInput?.setDisabled(!v);
             }))
             .addText(t => {
                 payeeInput = t;
@@ -112,12 +113,12 @@ export class BatchEditModal extends Modal {
             });
 
         // Note
-        let noteInput: any;
+        let noteInput: TextComponent | null = null;
         new Setting(container)
             .setName("备注")
             .addToggle(t => t.setValue(false).onChange(v => {
                 this.enabledFields.note = v;
-                if (noteInput) noteInput.setDisabled(!v);
+                noteInput?.setDisabled(!v);
             }))
             .addText(t => {
                 noteInput = t;

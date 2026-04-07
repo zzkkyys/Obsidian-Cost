@@ -44,17 +44,26 @@ export class KPICardsWidget extends BaseComponent {
         expenseCard.createDiv({ cls: "cost-kpi-value", text: `¥${formatCompact(thisMonthExpense)}` });
 
         const diff = thisMonthExpense - lastMonthExpense;
-        const percent = lastMonthExpense > 0 ? (diff / lastMonthExpense * 100).toFixed(0) : "0";
-        // Expense increase is "bad" usually, but technically "up"
-        const trendIcon = diff > 0 ? "⬆" : "⬇";
-        const _trendClass = diff > 0 ? "cost-trend-up" : "cost-trend-down"; // up might be red for expense?
 
-        // Usually for expense: Higher = Red, Lower = Green
-        // But let's stick to neutral up/down classes or reuse balance classes
-        const colorClass = diff > 0 ? "cost-balance-negative" : "cost-balance-positive";
+        let trendText: string;
+        let colorClass: string;
+        if (lastMonthExpense === 0) {
+            if (diff === 0) {
+                trendText = "— 与上月持平";
+                colorClass = "";
+            } else {
+                trendText = "⬆ 上月无支出";
+                colorClass = "cost-balance-negative";
+            }
+        } else {
+            const pct = Math.round(Math.abs(diff) / lastMonthExpense * 100);
+            const icon = diff > 0 ? "⬆" : "⬇";
+            trendText = `${icon} ${pct}% vs 上月`;
+            colorClass = diff > 0 ? "cost-balance-negative" : "cost-balance-positive";
+        }
 
         const trendEl = expenseCard.createDiv({ cls: `cost-kpi-trend ${colorClass}` });
-        trendEl.setText(`${trendIcon} ${Math.abs(Number(percent))}% vs 上月`);
+        trendEl.setText(trendText);
 
         // 2. Daily Average
         const daysPassed = now.getDate();
