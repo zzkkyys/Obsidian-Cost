@@ -20,7 +20,9 @@
    - 命令输出示例：`2026-02-24 17:20:38`
    - `date` 字段 ← 取日期部分 → `2026-02-24`
    - `time` 字段 ← 取时间部分 → `17:20:38`
-   - `uid` 字段 ← 使用当前毫秒时间戳，执行 `date +%s%3N`（Linux/macOS/WSL）或 `powershell -c "[DateTimeOffset]::Now.ToUnixTimeMilliseconds()"`（Windows）
+   - `uid` 字段 ← 使用当前毫秒时间戳：
+     - macOS/Linux/WSL: `date +%s%3N`
+     - Windows: `powershell -c "[DateTimeOffset]::Now.ToUnixTimeMilliseconds()"`
    - 如果用户指定了具体时间（如"中午"、"下午三点"），则用用户指定的时间覆盖 `time` 字段，但仍用真实日期
 
 4. **确定仓库路径**（用于创建文件）：
@@ -32,11 +34,11 @@
 
 **必须**读取插件的 `data.json` 文件获取最新的账户、分类和商家列表，**不要猜测或编造**。
 
-文件路径：`{{VAULT_PATH}}/.obsidian/plugins/Obsidan-cost/data.json`
+文件路径：`{{VAULT_PATH}}/.obsidian/plugins/Obsidian-zzkkyys-Cost/data.json`
 
 读取后关注以下字段：
 - `knownAccounts` → 可用账户列表（每个包含 fileName, displayName, accountKind, institution, currency）
-- `knownCategories` → 已有分类（按交易类型分组：支出/收入/转账/还款）
+- `knownCategories` → 已有分类（按交易类型分组：支出/收入/转账/还款/借款）
 - `knownPayees` → 已知商家列表
 - `knownPersons` → 已知标签/人物列表
 
@@ -48,33 +50,42 @@
 ---
 uid: <毫秒时间戳，通过命令获取>
 date: <从命令获取的日期 YYYY-MM-DD>
-time: <从命令获取的时间 HH:MM:SS>
-txn_type: <支出 | 收入 | 转账 | 还款>
+time: "<从命令获取的时间 HH:MM:SS>"
+txn_type: <支出 | 收入 | 转账 | 还款 | 借款>
 amount: <金额，正数>
 category: <分类>
 from: <来源账户文件名>
 to: <目标账户文件名>
-payee: <商家/收款人>
+payee: <商家/收款人/出借人>
 address: <地址，可选>
 latitude: <纬度，可选>
 longitude: <经度，可选>
 persons: [<标签列表>]
 memo: <备注>
-discount: <优惠金额，仅还款有效>
-refund: <退款金额，仅支出有效>
-refund_to: <退款账户，仅支出有效>
+note: <额外备注，可选>
+currency: <币种，默认 CNY>
+discount: <优惠金额，仅还款有效，默认 0>
+refund: <退款金额，仅支出有效，默认 0>
+refund_to: <退款账户，仅支出有效，留空则默认退回来源账户>
 type: txn
 ---
 ```
 
+> ⚠️ `time` 字段**必须加双引号**。`HH:MM:SS` 格式在 YAML 中会被解析为数字（sexagesimal），导致数据错误。
+>
+> 💡 `discount`（仅还款）、`refund` / `refund_to`（仅支出）对其他交易类型无意义，创建文件时可直接省略，不必填 0。
+
 ## 交易类型说明
 
-| 类型 | 说明 | from | to |
-|------|------|------|-----|
-| 支出 | 花钱消费 | 支付账户 | 留空 |
-| 收入 | 获得收入 | 留空 | 入账账户 |
-| 转账 | 账户间转移 | 转出账户 | 转入账户 |
-| 还款 | 信用卡/贷款还款 | 付款账户 | 还款目标账户 |
+| 类型 | 说明 | from | to | payee |
+|------|------|------|-----|-------|
+| 支出 | 花钱消费 | 支付账户 | 留空 | 商家名 |
+| 收入 | 获得收入 | 留空 | 入账账户 | 来源方 |
+| 转账 | 账户间转移 | 转出账户 | 转入账户 | 留空 |
+| 还款 | 信用卡/贷款还款 | 付款账户 | 还款目标账户 | 留空 |
+| 借款 | 借入资金到账户 | 留空 | 借入账户 | 出借人（如"朋友张三"、"京东金融"） |
+
+**借款与还款关联规则**：用相同的 `payee`（出借人）关联借款和还款记录。借贷明细页会自动按 payee 汇总，计算待还余额。
 
 ## 选择规则：理由与置信度
 
@@ -135,7 +146,7 @@ type: txn
 
 ## 生成规则
 
-1. **日期和时间**：**必须**通过执行命令获取真实时间，禁止编造。用户说"今天/刚才"等相对时间时基于真实时间推算
+1. **日期和时间**：**必须**通过执行命令获取真实时间，禁止编造。用户说"今天/刚才"等相对时间时基于真实时间推算。`time` 字段写入时**必须加双引号**（`time: "17:20:38"`），否则 YAML 会将其解析为数字
 2. **金额**：从用户描述中提取，必须为正数
 3. **分类匹配**：优先从 data.json 的 `knownCategories` 中选择最合适的，支持 `主分类/子分类` 格式
 4. **账户匹配**：根据用户提及的支付方式，匹配 data.json 的 `knownAccounts` 中的 **fileName** 字段
@@ -183,6 +194,53 @@ latitude:
 longitude:
 persons: []
 memo: 午餐
+note:
+currency: CNY
+refund: 0
+refund_to:
 type: txn
 ---
 ```
+
+---
+
+用户输入："向朋友小王借了2000块，存到了招商银行卡里"
+
+**AI 执行步骤**：
+
+1. 执行 `date '+%Y-%m-%d %H:%M:%S'` → 获得 `2026-04-07 10:30:00`
+2. 执行 `date +%s%3N` → 获得 `1775550600000`
+3. 读取 `data.json`，获取 knownAccounts / knownCategories / knownPayees
+4. 选择分析：
+   - 🏷️ 类型：借款 (100%) — 用户说"借了"，是借款类型
+   - 🏦 借入账户 (to)：招商银行 (90%) — 用户说"存到了招商银行卡里"，匹配 knownAccounts
+   - 👤 出借人 (payee)：小王 (100%) — 用户明确说"朋友小王"；还款时需用相同 payee 关联
+   - 📂 分类：个人借款 (85%) — 向个人借款
+   - 💰 金额：2000
+5. 创建文件：
+
+文件路径：`<仓库路径>/{{TRANSACTIONS_PATH}}/2026/2026-04/2026-04-07/txn-1775550600000.md`
+
+```yaml
+---
+uid: 1775550600000
+date: 2026-04-07
+time: "10:30:00"
+txn_type: 借款
+amount: 2000
+category: 个人借款
+from:
+to: 招商银行
+payee: 小王
+address:
+latitude:
+longitude:
+persons: []
+memo: 朋友借款
+note:
+currency: CNY
+type: txn
+---
+```
+
+> 📌 还款时：创建 `txn_type: 还款` 的交易，`payee` 填 `小王`，借贷明细页将自动汇总并计算待还余额。
